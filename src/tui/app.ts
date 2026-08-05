@@ -8,16 +8,14 @@ import {
   type ThemeMode,
 } from "@opentui/core";
 import type { AppConfig } from "../config/app.ts";
-import type { ForwardEngine } from "../forward.ts";
-import type { RootProxy } from "../proxy.ts";
+import type { Runtime } from "../runtime.ts";
 import { buildView, type PortRowView } from "../view.ts";
 
 export interface TuiOptions {
   workspaceRoot: string;
   apps: AppConfig[];
   defaultRemote: string | null;
-  engine: ForwardEngine;
-  proxy: RootProxy;
+  runtime: Runtime;
 }
 
 export interface Palette {
@@ -122,8 +120,8 @@ export async function runTui(options: TuiOptions): Promise<void> {
       apps: options.apps,
       collapsed,
       defaultRemote: options.defaultRemote,
-      statuses: options.engine.statuses(),
-      proxyStatus: options.proxy.status(),
+      statuses: options.runtime.statuses(),
+      proxyStatus: options.runtime.proxyStatus(),
     });
 
     setText(
@@ -211,12 +209,12 @@ export async function runTui(options: TuiOptions): Promise<void> {
   };
 
   await new Promise<void>((resolve) => {
+    const unsubscribe = options.runtime.onChange(render);
     renderer.keyInput.on("keypress", (key: KeyEvent) => {
       if (key.name === "q") {
-        void options.engine.stopAll().finally(() => {
-          renderer.destroy();
-          resolve();
-        });
+        unsubscribe();
+        renderer.destroy();
+        resolve();
         return;
       }
       if (key.name === "up" || key.name === "k") move(-1);
@@ -224,13 +222,10 @@ export async function runTui(options: TuiOptions): Promise<void> {
       if (key.name === "space") toggleSelected();
       const item = items[selected];
       if (item?.kind === "row") {
-        if (key.name === "s") void options.engine.start(item.dir, item.portName);
-        if (key.name === "x") void options.engine.stop(item.dir, item.portName);
+        if (key.name === "s") void options.runtime.startForward(item.dir, item.portName);
+        if (key.name === "x") void options.runtime.stopForward(item.dir, item.portName);
       }
     });
-
-    options.engine.onChange(render);
-    options.proxy.onChange(render);
 
     renderer.on("theme_mode", (mode: ThemeMode) => {
       themeMode = mode;
