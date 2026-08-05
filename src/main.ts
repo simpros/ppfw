@@ -7,6 +7,7 @@ import { ConfigError, UsageError } from "./errors.ts";
 import { expandPath } from "./paths.ts";
 import { ForwardEngine } from "./forward.ts";
 import { RootProxy, routesForApps } from "./proxy.ts";
+import { validateRemotes } from "./remotes.ts";
 import { createRuntime } from "./runtime.ts";
 import { runTui } from "./tui/app.ts";
 
@@ -24,6 +25,7 @@ async function main(): Promise<void> {
   const defaultRemote = args.remote ?? global.defaultRemote;
 
   const apps = discoverApps(workspaceRoot, { aliasSuffix: global.aliasSuffix });
+  validateRemotes({ apps, defaultRemote });
   const engine = new ForwardEngine({ apps, defaultRemote });
   const proxy = new RootProxy({ routes: routesForApps(apps) });
   const runtime = createRuntime({ engine, proxy });
