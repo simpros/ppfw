@@ -16,10 +16,15 @@ const routes = new Map<string, number>(
 const portText = flagValue(args, "--port");
 const port = portText === null ? 80 : Number(portText);
 
+console.error(`root-proxy: routes=${routesText} port=${port}`);
 startProxyServer(routes, { port });
+console.error(`root-proxy: serving on 127.0.0.1:${port}`);
 
 process.stdin.resume();
-process.stdin.on("end", () => process.exit(0));
+process.stdin.on("end", () => {
+  console.error("root-proxy: stdin closed, exiting");
+  process.exit(0);
+});
 
 function flagValue(args: string[], flag: string): string | null {
   const index = args.indexOf(flag);

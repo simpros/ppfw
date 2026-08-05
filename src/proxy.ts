@@ -4,6 +4,7 @@ import { messageOf } from "./errors.ts";
 import {
   bunSpawnWithStdin,
   runStartupWatch,
+  sleep,
   tcpProbe,
   type ProbeFn,
   type SpawnFn,
@@ -125,10 +126,21 @@ export class RootProxy {
     await this.runStartup(child, generation, () => {
       startupFailed = true;
     });
-    if (startupFailed && child.stderrText) {
-      const stderr = (await child.stderrText()).trim();
-      if (stderr !== "") this.lastError = stderr;
-    }
+    if (startupFailed) await this.captureFailure(child);
+  }
+
+  private async captureFailure(child: SpawnedChild): Promise<void> {
+    const [exitCode, stderr] = await Promise.all([
+      Promise.race([child.exited.catch(() => -1), sleep(2000).then(() => -1)]),
+      child.stderrText
+        ? Promise.race([child.stderrText(), sleep(2000).then(() => "")])
+        : Promise.resolve(""),
+    ]);
+    const parts: string[] = [];
+    if (exitCode !== -1) parts.push(`child exited with code ${exitCode}`);
+    const text = stderr.trim();
+    if (text !== "") parts.push(text);
+    if (parts.length > 0) this.lastError = parts.join(": ");
   }
 
   async stop(): Promise<void> {

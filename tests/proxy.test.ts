@@ -35,6 +35,7 @@ class FakeChild implements SpawnedChild {
 
   closeStdin(): void {
     this.stdinClosed = true;
+    this.exit(0);
   }
 
   stderrText = async (): Promise<string> => this.stderr;
@@ -221,7 +222,7 @@ describe("RootProxy", () => {
     expect(proxy.status()).toEqual({ phase: "starting", lastError: null });
     spawn.children[0]!.exit(255);
     await started;
-    expect(proxy.status()).toEqual({ phase: "down", lastError: null });
+    expect(proxy.status()).toEqual({ phase: "down", lastError: "child exited with code 255" });
   });
 
   test("a spawn failure leaves the proxy down and records the error", async () => {
@@ -232,7 +233,7 @@ describe("RootProxy", () => {
     expect(proxy.status()).toEqual({ phase: "down", lastError: "spawn sudo ENOENT" });
   });
 
-  test("a failed startup surfaces the child's stderr", async () => {
+  test("a failed startup surfaces the child's exit code and stderr", async () => {
     const proxy = new RootProxy({
       routes: [],
       scriptPath: SCRIPT,
@@ -248,7 +249,21 @@ describe("RootProxy", () => {
     await proxy.start();
     expect(proxy.status()).toEqual({
       phase: "down",
-      lastError: "sudo: a terminal is required to read the password",
+      lastError: "child exited with code 0: sudo: a terminal is required to read the password",
+    });
+  });
+
+  test("a child that exits while starting reports its exit code", async () => {
+    const spawn = new FakeSpawn();
+    const { proxy } = makeProxy({ spawn, probeOpen: false });
+    const started = proxy.start();
+    await tick();
+    spawn.children[0]!.stderr = "sudo: no tty present\n";
+    spawn.children[0]!.exit(1);
+    await started;
+    expect(proxy.status()).toEqual({
+      phase: "down",
+      lastError: "child exited with code 1: sudo: no tty present",
     });
   });
 
@@ -256,7 +271,7 @@ describe("RootProxy", () => {
     const spawn = new FakeSpawn();
     const { proxy } = makeProxy({ spawn, probeOpen: false });
     await proxy.start();
-    expect(proxy.status()).toEqual({ phase: "down", lastError: null });
+    expect(proxy.status()).toEqual({ phase: "down", lastError: "child exited with code 0" });
     expect(spawn.children[0]!.stdinClosed).toBe(true);
   });
 
