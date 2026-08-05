@@ -5,6 +5,7 @@ import {
   type KeyEvent,
   ScrollBoxRenderable,
   TextRenderable,
+  type ThemeMode,
 } from "@opentui/core";
 import type { AppConfig } from "../config/app.ts";
 import { buildView, type PortRowView } from "../view.ts";
@@ -15,12 +16,33 @@ export interface TuiOptions {
   defaultRemote: string | null;
 }
 
-const DIM = "#8a8a8a";
-const ACCENT = "#5fd7ff";
-const SELECTED = "#ffd75f";
+export interface Palette {
+  dim: string;
+  accent: string;
+  selected: string;
+}
+
+const DARK_PALETTE: Palette = {
+  dim: "#8a8a8a",
+  accent: "#5fd7ff",
+  selected: "#ffd75f",
+};
+
+const LIGHT_PALETTE: Palette = {
+  dim: "#5f5f5f",
+  accent: "#005f87",
+  selected: "#af5f00",
+};
+
+export function paletteFor(themeMode: ThemeMode | null): Palette {
+  return themeMode === "light" ? LIGHT_PALETTE : DARK_PALETTE;
+}
+
+const THEME_DETECT_TIMEOUT_MS = 300;
 
 export async function runTui(options: TuiOptions): Promise<void> {
   const renderer = await createCliRenderer({ exitOnCtrlC: true });
+  await renderer.waitForThemeMode(THEME_DETECT_TIMEOUT_MS);
   const collapsed = new Set<string>();
   let selected = 0;
   let content: BoxRenderable | null = null;
@@ -53,6 +75,7 @@ export async function runTui(options: TuiOptions): Promise<void> {
   const renderRow = (
     row: PortRowView,
     widths: { state: number; name: number; port: number },
+    colors: Palette,
   ): TextRenderable => {
     const line =
       `  ${row.state.padEnd(widths.state)}  ` +
@@ -60,11 +83,12 @@ export async function runTui(options: TuiOptions): Promise<void> {
       `${row.alias}${row.note ? `   ${row.note}` : ""}`;
     return new TextRenderable(renderer, {
       content: line,
-      fg: row.standalone ? ACCENT : undefined,
+      fg: row.standalone ? colors.accent : undefined,
     });
   };
 
   const render = (): void => {
+    const colors = paletteFor(renderer.themeMode);
     const view = buildView({
       workspaceRoot: options.workspaceRoot,
       apps: options.apps,
@@ -75,11 +99,11 @@ export async function runTui(options: TuiOptions): Promise<void> {
     setText(
       header,
       new TextRenderable(renderer, { content: view.header.left }),
-      new TextRenderable(renderer, { content: view.header.counts, fg: DIM }),
+      new TextRenderable(renderer, { content: view.header.counts, fg: colors.dim }),
     );
     setText(
       footer,
-      new TextRenderable(renderer, { content: view.footer.keys, fg: DIM }),
+      new TextRenderable(renderer, { content: view.footer.keys, fg: colors.dim }),
     );
 
     if (content) {
@@ -102,7 +126,7 @@ export async function runTui(options: TuiOptions): Promise<void> {
       box.add(
         new TextRenderable(renderer, {
           content: "no apps found — add a .ppfw.config to an app directory",
-          fg: DIM,
+          fg: colors.dim,
         }),
       );
     }
@@ -115,15 +139,15 @@ export async function runTui(options: TuiOptions): Promise<void> {
       groupHeader.add(
         new TextRenderable(renderer, {
           content: `${group.collapsedGlyph} ${group.name}`,
-          fg: index === selected ? SELECTED : undefined,
+          fg: index === selected ? colors.selected : undefined,
           attributes: createTextAttributes({ bold: true }),
         }),
       );
       groupHeader.add(
-        new TextRenderable(renderer, { content: group.remoteLabel, fg: DIM }),
+        new TextRenderable(renderer, { content: group.remoteLabel, fg: colors.dim }),
       );
       groupBox.add(groupHeader);
-      for (const row of group.rows) groupBox.add(renderRow(row, widths));
+      for (const row of group.rows) groupBox.add(renderRow(row, widths, colors));
       box.add(groupBox);
     });
     body.add(box);
@@ -152,6 +176,8 @@ export async function runTui(options: TuiOptions): Promise<void> {
     if (key.name === "down" || key.name === "j") move(1);
     if (key.name === "space") toggleSelected();
   });
+
+  renderer.on("theme_mode", () => render());
 
   render();
 }
