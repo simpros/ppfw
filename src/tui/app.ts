@@ -8,12 +8,14 @@ import {
   type ThemeMode,
 } from "@opentui/core";
 import type { AppConfig } from "../config/app.ts";
+import type { ForwardEngine } from "../forward.ts";
 import { buildView, type PortRowView } from "../view.ts";
 
 export interface TuiOptions {
   workspaceRoot: string;
   apps: AppConfig[];
   defaultRemote: string | null;
+  engine: ForwardEngine;
 }
 
 export interface Palette {
@@ -56,6 +58,10 @@ export function themeFromEnv(
 
 const THEME_DETECT_TIMEOUT_MS = 300;
 
+type Item =
+  | { kind: "group"; dir: string }
+  | { kind: "row"; dir: string; portName: string };
+
 export async function runTui(options: TuiOptions): Promise<void> {
   const renderer = await createCliRenderer({ exitOnCtrlC: true });
   await renderer.waitForThemeMode(THEME_DETECT_TIMEOUT_MS);
@@ -93,6 +99,7 @@ export async function runTui(options: TuiOptions): Promise<void> {
     row: PortRowView,
     widths: { state: number; name: number; port: number },
     colors: Palette,
+    isSelected: boolean,
   ): TextRenderable => {
     const line =
       `  ${row.state.padEnd(widths.state)}  ` +
@@ -100,9 +107,11 @@ export async function runTui(options: TuiOptions): Promise<void> {
       `${row.alias}${row.note ? `   ${row.note}` : ""}`;
     return new TextRenderable(renderer, {
       content: line,
-      fg: row.standalone ? colors.accent : colors.fg,
+      fg: isSelected ? colors.selected : row.standalone ? colors.accent : colors.fg,
     });
   };
+
+  let items: Item[] = [];
 
   const render = (): void => {
     const colors = paletteFor(themeMode);
@@ -111,6 +120,7 @@ export async function runTui(options: TuiOptions): Promise<void> {
       apps: options.apps,
       collapsed,
       defaultRemote: options.defaultRemote,
+      statuses: options.engine.statuses(),
     });
 
     setText(
@@ -140,6 +150,13 @@ export async function runTui(options: TuiOptions): Promise<void> {
       rowGap: 1,
     });
     const box = content;
+    items = view.groups.flatMap((group) => [
+      { kind: "group", dir: group.dir } as Item,
+      ...group.rows.map(
+        (row): Item => ({ kind: "row", dir: group.dir, portName: row.name }),
+      ),
+    ]);
+    selected = Math.min(selected, Math.max(0, items.length - 1));
     if (view.groups.length === 0) {
       box.add(
         new TextRenderable(renderer, {
@@ -148,7 +165,9 @@ export async function runTui(options: TuiOptions): Promise<void> {
         }),
       );
     }
-    view.groups.forEach((group, index) => {
+    let itemIndex = -1;
+    view.groups.forEach((group) => {
+      itemIndex += 1;
       const groupBox = new BoxRenderable(renderer, { flexDirection: "column" });
       const groupHeader = new BoxRenderable(renderer, {
         flexDirection: "row",
@@ -157,7 +176,7 @@ export async function runTui(options: TuiOptions): Promise<void> {
       groupHeader.add(
         new TextRenderable(renderer, {
           content: `${group.collapsedGlyph} ${group.name}`,
-          fg: index === selected ? colors.selected : colors.fg,
+          fg: itemIndex === selected ? colors.selected : colors.fg,
           attributes: createTextAttributes({ bold: true }),
         }),
       );
@@ -165,35 +184,45 @@ export async function runTui(options: TuiOptions): Promise<void> {
         new TextRenderable(renderer, { content: group.remoteLabel, fg: colors.dim }),
       );
       groupBox.add(groupHeader);
-      for (const row of group.rows) groupBox.add(renderRow(row, widths, colors));
+      for (const row of group.rows) {
+        itemIndex += 1;
+        groupBox.add(renderRow(row, widths, colors, itemIndex === selected));
+      }
       box.add(groupBox);
     });
     body.add(box);
   };
 
   const move = (delta: number): void => {
-    if (options.apps.length === 0) return;
-    selected = Math.min(Math.max(selected + delta, 0), options.apps.length - 1);
+    if (items.length === 0) return;
+    selected = Math.min(Math.max(selected + delta, 0), items.length - 1);
     render();
   };
 
   const toggleSelected = (): void => {
-    const app = options.apps[selected];
-    if (!app) return;
-    if (collapsed.has(app.dir)) collapsed.delete(app.dir);
-    else collapsed.add(app.dir);
+    const item = items[selected];
+    if (item?.kind !== "group") return;
+    if (collapsed.has(item.dir)) collapsed.delete(item.dir);
+    else collapsed.add(item.dir);
     render();
   };
 
   renderer.keyInput.on("keypress", (key: KeyEvent) => {
     if (key.name === "q") {
-      renderer.destroy();
+      void options.engine.stopAll().finally(() => renderer.destroy());
       return;
     }
     if (key.name === "up" || key.name === "k") move(-1);
     if (key.name === "down" || key.name === "j") move(1);
     if (key.name === "space") toggleSelected();
+    const item = items[selected];
+    if (item?.kind === "row") {
+      if (key.name === "s") void options.engine.start(item.dir, item.portName);
+      if (key.name === "x") void options.engine.stop(item.dir, item.portName);
+    }
   });
+
+  options.engine.onChange(render);
 
   renderer.on("theme_mode", (mode: ThemeMode) => {
     themeMode = mode;
