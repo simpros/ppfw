@@ -19,6 +19,7 @@ export type ProxyPhase = "down" | "starting" | "up";
 
 export interface ProxyStatus {
   phase: ProxyPhase;
+  lastError: string | null;
 }
 
 export interface RootProxyOptions {
@@ -94,7 +95,7 @@ export class RootProxy {
   }
 
   status(): ProxyStatus {
-    return { phase: this.phase };
+    return { phase: this.phase, lastError: this.lastError };
   }
 
   onChange(listener: () => void): () => void {

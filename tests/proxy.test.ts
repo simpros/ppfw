@@ -132,7 +132,7 @@ describe("routesForApps", () => {
 describe("RootProxy", () => {
   test("starts down", () => {
     const { proxy } = makeProxy({});
-    expect(proxy.status()).toEqual({ phase: "down" });
+    expect(proxy.status()).toEqual({ phase: "down", lastError: null });
   });
 
   test("start spawns the root proxy with the routes", async () => {
@@ -149,7 +149,7 @@ describe("RootProxy", () => {
   test("start transitions to up once port 80 opens", async () => {
     const { proxy } = makeProxy({ probeOpen: true });
     await proxy.start();
-    expect(proxy.status()).toEqual({ phase: "up" });
+    expect(proxy.status()).toEqual({ phase: "up", lastError: null });
   });
 
   test("start is a no-op while starting or up", async () => {
@@ -159,13 +159,13 @@ describe("RootProxy", () => {
     await Promise.all([first, second]);
     await proxy.start();
     expect(spawn.calls.length).toBe(1);
-    expect(proxy.status()).toEqual({ phase: "up" });
+    expect(proxy.status()).toEqual({ phase: "up", lastError: null });
   });
 
   test("stop closes the child's stdin and returns the proxy to down", async () => {
     const { proxy, spawn } = makeProxy({});
     await proxy.start();
-    expect(proxy.status()).toEqual({ phase: "up" });
+    expect(proxy.status()).toEqual({ phase: "up", lastError: null });
 
     const child = spawn.children[0]!;
     const stopped = proxy.stop();
@@ -173,7 +173,7 @@ describe("RootProxy", () => {
     expect(child.killSignal).toBeNull();
     child.exit(0);
     await stopped;
-    expect(proxy.status()).toEqual({ phase: "down" });
+    expect(proxy.status()).toEqual({ phase: "down", lastError: null });
   });
 
   test("stop falls back to a signal when the child has no stdin channel", async () => {
@@ -201,16 +201,16 @@ describe("RootProxy", () => {
     expect(children[0]!.killSignal).toBe("SIGTERM");
     children[0]!.child.exit(0);
     await stopped;
-    expect(proxy.status()).toEqual({ phase: "down" });
+    expect(proxy.status()).toEqual({ phase: "down", lastError: null });
   });
 
   test("unexpected child exit while up returns the proxy to down", async () => {
     const { proxy, spawn } = makeProxy({});
     await proxy.start();
-    expect(proxy.status()).toEqual({ phase: "up" });
+    expect(proxy.status()).toEqual({ phase: "up", lastError: null });
     spawn.children[0]!.exit(1);
     await tick();
-    expect(proxy.status()).toEqual({ phase: "down" });
+    expect(proxy.status()).toEqual({ phase: "down", lastError: null });
   });
 
   test("child exit while starting returns the proxy to down", async () => {
@@ -218,10 +218,10 @@ describe("RootProxy", () => {
     const { proxy } = makeProxy({ spawn, probeOpen: false });
     const started = proxy.start();
     await tick();
-    expect(proxy.status()).toEqual({ phase: "starting" });
+    expect(proxy.status()).toEqual({ phase: "starting", lastError: null });
     spawn.children[0]!.exit(255);
     await started;
-    expect(proxy.status()).toEqual({ phase: "down" });
+    expect(proxy.status()).toEqual({ phase: "down", lastError: null });
   });
 
   test("a spawn failure leaves the proxy down and records the error", async () => {
@@ -229,8 +229,7 @@ describe("RootProxy", () => {
     spawn.error = new Error("spawn sudo ENOENT");
     const { proxy } = makeProxy({ spawn });
     await proxy.start();
-    expect(proxy.status()).toEqual({ phase: "down" });
-    expect(proxy.lastError).toBe("spawn sudo ENOENT");
+    expect(proxy.status()).toEqual({ phase: "down", lastError: "spawn sudo ENOENT" });
   });
 
   test("a failed startup surfaces the child's stderr", async () => {
@@ -247,22 +246,24 @@ describe("RootProxy", () => {
       startupTimeoutMs: 20,
     });
     await proxy.start();
-    expect(proxy.status()).toEqual({ phase: "down" });
-    expect(proxy.lastError).toBe("sudo: a terminal is required to read the password");
+    expect(proxy.status()).toEqual({
+      phase: "down",
+      lastError: "sudo: a terminal is required to read the password",
+    });
   });
 
   test("start closes the child's stdin when the port never opens before the deadline", async () => {
     const spawn = new FakeSpawn();
     const { proxy } = makeProxy({ spawn, probeOpen: false });
     await proxy.start();
-    expect(proxy.status()).toEqual({ phase: "down" });
+    expect(proxy.status()).toEqual({ phase: "down", lastError: null });
     expect(spawn.children[0]!.stdinClosed).toBe(true);
   });
 
   test("stop on a never-started proxy is a no-op", async () => {
     const { proxy } = makeProxy({});
     await proxy.stop();
-    expect(proxy.status()).toEqual({ phase: "down" });
+    expect(proxy.status()).toEqual({ phase: "down", lastError: null });
   });
 
   test("emits a change event on every phase transition", async () => {

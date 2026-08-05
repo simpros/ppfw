@@ -58,14 +58,21 @@ export function buildView(options: BuildViewOptions): View {
 
   return {
     header: {
-      left: `ppfw  workspace ${options.workspaceRoot}  proxy ${
-        options.proxyStatus?.phase === "up" ? "● up" : "○ down"
-      }`,
+      left: `ppfw  workspace ${options.workspaceRoot}  proxy ${proxyLabel(
+        options.proxyStatus,
+      )}`,
       counts: `${options.apps.length} apps · ${portCount} ports · ${upCount} up`,
     },
     groups: options.apps.map((app) => buildGroup(app, options)),
     footer: { keys: FOOTER_KEYS },
   };
+}
+
+function proxyLabel(status: ProxyStatus | undefined): string {
+  if (status?.phase === "up") return "● up";
+  const error = status?.lastError;
+  if (error === undefined || error === null || error === "") return "○ down";
+  return `○ down (${error.length > 40 ? `${error.slice(0, 37)}…` : error})`;
 }
 
 function buildGroup(app: AppConfig, options: BuildViewOptions): AppGroupView {
