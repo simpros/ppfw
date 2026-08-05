@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type { AppConfig } from "./config/app.ts";
+import { RouteTable, type Route } from "./route-table.ts";
 import {
   ChildSupervisor,
   sudoValidateEscalation,
@@ -9,10 +10,7 @@ import {
   type SpawnFn,
 } from "./supervisor.ts";
 
-export interface ProxyRoute {
-  host: string;
-  port: number;
-}
+export type ProxyRoute = Route;
 
 export type ProxyPhase = "down" | "starting" | "up";
 
@@ -39,9 +37,7 @@ const DEFAULT_STARTUP_TIMEOUT_MS = 10_000;
 const DEFAULT_CAPTURE_TIMEOUT_MS = 2_000;
 
 export function proxyRoutesJson(routes: ProxyRoute[]): string {
-  const map: Record<string, number> = {};
-  for (const route of routes) map[route.host] = route.port;
-  return JSON.stringify(map);
+  return new RouteTable(routes).toJson();
 }
 
 export function buildRootProxyArgs(

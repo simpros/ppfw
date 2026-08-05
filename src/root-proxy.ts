@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { startProxyServer } from "./proxy-server.ts";
+import { RouteTable } from "./route-table.ts";
 
 const args = process.argv.slice(2);
 
@@ -9,9 +10,7 @@ if (routesText === null) {
   process.exit(1);
 }
 
-const routes = new Map<string, number>(
-  Object.entries(JSON.parse(routesText) as Record<string, number>),
-);
+const routes = RouteTable.fromJson(routesText);
 
 const portText = flagValue(args, "--port");
 const port = portText === null ? 80 : Number(portText);

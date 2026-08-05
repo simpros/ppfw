@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { normalizeHost, startProxyServer } from "../src/proxy-server.ts";
+import { RouteTable } from "../src/route-table.ts";
+import { startProxyServer } from "../src/proxy-server.ts";
 
 interface Backend {
   port: number;
@@ -30,7 +31,10 @@ function listen(
 }
 
 function proxy(routes: Record<string, number>): ReturnType<typeof startProxyServer> {
-  const server = startProxyServer(new Map(Object.entries(routes)), { port: 0 });
+  const server = startProxyServer(
+    new RouteTable(Object.entries(routes).map(([host, port]) => ({ host, port }))),
+    { port: 0 },
+  );
   proxies.push(server);
   return server;
 }
@@ -128,18 +132,28 @@ describe("startProxyServer", () => {
   });
 });
 
-describe("normalizeHost", () => {
+describe("RouteTable", () => {
   test("lowercases and trims the header", () => {
-    expect(normalizeHost("  Frontend.Kido.Local  ")).toBe("frontend.kido.local");
+    const routes = new RouteTable([{ host: "Frontend.Kido.Local", port: 1 }]);
+    expect(routes.lookup("  frontend.kido.local  ")).toBe(1);
   });
 
   test("strips an explicit port", () => {
-    expect(normalizeHost("frontend.kido.local:8080")).toBe("frontend.kido.local");
-    expect(normalizeHost("frontend.kido.local:80")).toBe("frontend.kido.local");
+    const routes = new RouteTable([{ host: "frontend.kido.local", port: 1 }]);
+    expect(routes.lookup("frontend.kido.local:8080")).toBe(1);
+    expect(routes.lookup("frontend.kido.local:80")).toBe(1);
   });
 
   test("returns null for a missing or empty header", () => {
-    expect(normalizeHost(null)).toBeNull();
-    expect(normalizeHost("   ")).toBeNull();
+    const routes = new RouteTable([{ host: "frontend.kido.local", port: 1 }]);
+    expect(routes.lookup(null)).toBeUndefined();
+    expect(routes.lookup("   ")).toBeUndefined();
+  });
+
+  test("rejects duplicate aliases after normalization", () => {
+    expect(() => new RouteTable([
+      { host: "Frontend.Kido.Local", port: 1 },
+      { host: "frontend.kido.local", port: 2 },
+    ])).toThrow(/duplicate alias host/);
   });
 });

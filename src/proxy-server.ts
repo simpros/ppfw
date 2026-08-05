@@ -1,3 +1,5 @@
+import { RouteTable } from "./route-table.ts";
+
 export interface ProxyServerOptions {
   port?: number;
 }
@@ -8,15 +10,13 @@ export interface ProxyServer {
 }
 
 export function startProxyServer(
-  routes: ReadonlyMap<string, number>,
+  routes: RouteTable,
   options: ProxyServerOptions = {},
 ): ProxyServer {
-  const normalized = new Map<string, number>();
-  for (const [host, port] of routes) normalized.set(host.toLowerCase(), port);
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: options.port ?? 80,
-    fetch: (request) => proxyRequest(normalized, request),
+    fetch: (request) => proxyRequest(routes, request),
   });
   return {
     port: server.port ?? options.port ?? 80,
@@ -26,19 +26,11 @@ export function startProxyServer(
   };
 }
 
-export function normalizeHost(hostHeader: string | null): string | null {
-  if (hostHeader === null) return null;
-  const host = hostHeader.trim().toLowerCase();
-  if (host === "") return null;
-  return host.split(":")[0] ?? host;
-}
-
 async function proxyRequest(
-  routes: ReadonlyMap<string, number>,
+  routes: RouteTable,
   request: Request,
 ): Promise<Response> {
-  const host = normalizeHost(request.headers.get("host"));
-  const targetPort = host === null ? undefined : routes.get(host);
+  const targetPort = routes.lookup(request.headers.get("host"));
   if (targetPort === undefined) {
     return new Response("unknown host", { status: 502 });
   }
