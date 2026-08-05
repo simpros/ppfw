@@ -6,6 +6,7 @@ import { discoverApps } from "./discover.ts";
 import { ConfigError, UsageError } from "./errors.ts";
 import { expandPath } from "./paths.ts";
 import { ForwardEngine } from "./forward.ts";
+import { RootProxy, routesForApps } from "./proxy.ts";
 import { runTui } from "./tui/app.ts";
 
 async function main(): Promise<void> {
@@ -23,10 +24,18 @@ async function main(): Promise<void> {
 
   const apps = discoverApps(workspaceRoot, { aliasSuffix: global.aliasSuffix });
   const engine = new ForwardEngine({ apps, defaultRemote });
+  const proxy = new RootProxy({ routes: routesForApps(apps) });
   process.on("exit", () => {
     void engine.stopAll();
+    void proxy.stop();
   });
-  await runTui({ workspaceRoot, apps, defaultRemote, engine });
+  await proxy.start();
+  if (proxy.status().phase !== "up") {
+    console.error("ppfw: root proxy failed to start — bare-hostname aliases will not resolve");
+  }
+  await runTui({ workspaceRoot, apps, defaultRemote, engine, proxy });
+  await engine.stopAll();
+  await proxy.stop();
 }
 
 main().catch((error: unknown) => {

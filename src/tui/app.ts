@@ -9,6 +9,7 @@ import {
 } from "@opentui/core";
 import type { AppConfig } from "../config/app.ts";
 import type { ForwardEngine } from "../forward.ts";
+import type { RootProxy } from "../proxy.ts";
 import { buildView, type PortRowView } from "../view.ts";
 
 export interface TuiOptions {
@@ -16,6 +17,7 @@ export interface TuiOptions {
   apps: AppConfig[];
   defaultRemote: string | null;
   engine: ForwardEngine;
+  proxy: RootProxy;
 }
 
 export interface Palette {
@@ -121,6 +123,7 @@ export async function runTui(options: TuiOptions): Promise<void> {
       collapsed,
       defaultRemote: options.defaultRemote,
       statuses: options.engine.statuses(),
+      proxyStatus: options.proxy.status(),
     });
 
     setText(
@@ -223,6 +226,7 @@ export async function runTui(options: TuiOptions): Promise<void> {
   });
 
   options.engine.onChange(render);
+  options.proxy.onChange(render);
 
   renderer.on("theme_mode", (mode: ThemeMode) => {
     themeMode = mode;

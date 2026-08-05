@@ -33,6 +33,16 @@ describe("buildView", () => {
     expect(v.header.counts).toBe("2 apps · 5 ports · 0 up");
   });
 
+  test("header shows the proxy as up when it is up", () => {
+    const v = buildView({
+      workspaceRoot: "/ws",
+      apps: [kido, backend],
+      collapsed: new Set(),
+      proxyStatus: { phase: "up" },
+    });
+    expect(v.header.left).toBe("ppfw  workspace /ws  proxy ● up");
+  });
+
   test("apps render as groups in the given order", () => {
     const v = view();
     expect(v.groups.map((g) => g.name)).toEqual(["kido", "backend"]);

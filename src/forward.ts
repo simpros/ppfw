@@ -1,19 +1,20 @@
-import { connect } from "node:net";
 import type { AppConfig, PortEntry } from "./config/app.ts";
+import {
+  bunSpawn,
+  runStartupWatch,
+  tcpProbe,
+  type ProbeFn,
+  type SpawnFn,
+  type SpawnedChild,
+} from "./supervisor.ts";
+
+export type { ProbeFn, SpawnFn, SpawnedChild } from "./supervisor.ts";
 
 export type ForwardPhase = "stopped" | "starting" | "up";
 
 export interface ForwardStatus {
   phase: ForwardPhase;
 }
-
-export interface SpawnedChild {
-  kill(signal?: NodeJS.Signals): void;
-  exited: Promise<number>;
-}
-
-export type SpawnFn = (argv: string[]) => SpawnedChild;
-export type ProbeFn = (port: number) => Promise<boolean>;
 
 export interface ForwardEngineOptions {
   apps: AppConfig[];
@@ -42,30 +43,6 @@ export function buildSshArgs(port: number, remote: string): string[] {
 
 const DEFAULT_POLL_INTERVAL_MS = 100;
 const DEFAULT_STARTUP_TIMEOUT_MS = 10_000;
-
-const bunSpawn: SpawnFn = (argv) => {
-  const proc = Bun.spawn(argv, {
-    stdin: "ignore",
-    stdout: "ignore",
-    stderr: "ignore",
-  });
-  return {
-    kill: (signal) => proc.kill(signal),
-    exited: proc.exited,
-  };
-};
-
-const tcpProbe: ProbeFn = (port) =>
-  new Promise<boolean>((resolve) => {
-    const socket = connect({ host: "127.0.0.1", port }, () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.once("error", () => {
-      socket.destroy();
-      resolve(false);
-    });
-  });
 
 interface Entry {
   app: AppConfig;
@@ -178,34 +155,21 @@ export class ForwardEngine {
     child: SpawnedChild,
     generation: number,
   ): Promise<void> {
-    const deadline = Date.now() + this.startupTimeoutMs;
-    const isCurrent = () =>
-      entry.generation === generation && entry.phase === "starting";
-
-    while (Date.now() < deadline) {
-      if (!isCurrent()) return;
-      if (await this.probe(entry.port.port)) {
-        if (isCurrent()) {
-          entry.phase = "up";
-          this.emit();
-          this.watchExit(entry, child, generation);
-        }
-        return;
-      }
-      const exited = await Promise.race([
-        child.exited.then(() => true),
-        sleep(this.pollIntervalMs).then(() => false),
-      ]);
-      if (exited) {
-        if (isCurrent()) this.markStopped(entry);
-        return;
-      }
-    }
-
-    if (isCurrent()) {
-      this.markStopped(entry);
-      child.kill("SIGTERM");
-    }
+    await runStartupWatch({
+      child,
+      probe: this.probe,
+      port: entry.port.port,
+      pollIntervalMs: this.pollIntervalMs,
+      startupTimeoutMs: this.startupTimeoutMs,
+      isCurrent: () =>
+        entry.generation === generation && entry.phase === "starting",
+      onUp: () => {
+        entry.phase = "up";
+        this.emit();
+        this.watchExit(entry, child, generation);
+      },
+      onFailed: () => this.markStopped(entry),
+    });
   }
 
   private watchExit(
@@ -229,8 +193,4 @@ export class ForwardEngine {
   private emit(): void {
     for (const listener of this.listeners) listener();
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
