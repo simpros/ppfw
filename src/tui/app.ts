@@ -210,28 +210,33 @@ export async function runTui(options: TuiOptions): Promise<void> {
     render();
   };
 
-  renderer.keyInput.on("keypress", (key: KeyEvent) => {
-    if (key.name === "q") {
-      void options.engine.stopAll().finally(() => renderer.destroy());
-      return;
-    }
-    if (key.name === "up" || key.name === "k") move(-1);
-    if (key.name === "down" || key.name === "j") move(1);
-    if (key.name === "space") toggleSelected();
-    const item = items[selected];
-    if (item?.kind === "row") {
-      if (key.name === "s") void options.engine.start(item.dir, item.portName);
-      if (key.name === "x") void options.engine.stop(item.dir, item.portName);
-    }
-  });
+  await new Promise<void>((resolve) => {
+    renderer.keyInput.on("keypress", (key: KeyEvent) => {
+      if (key.name === "q") {
+        void options.engine.stopAll().finally(() => {
+          renderer.destroy();
+          resolve();
+        });
+        return;
+      }
+      if (key.name === "up" || key.name === "k") move(-1);
+      if (key.name === "down" || key.name === "j") move(1);
+      if (key.name === "space") toggleSelected();
+      const item = items[selected];
+      if (item?.kind === "row") {
+        if (key.name === "s") void options.engine.start(item.dir, item.portName);
+        if (key.name === "x") void options.engine.stop(item.dir, item.portName);
+      }
+    });
 
-  options.engine.onChange(render);
-  options.proxy.onChange(render);
+    options.engine.onChange(render);
+    options.proxy.onChange(render);
 
-  renderer.on("theme_mode", (mode: ThemeMode) => {
-    themeMode = mode;
+    renderer.on("theme_mode", (mode: ThemeMode) => {
+      themeMode = mode;
+      render();
+    });
+
     render();
   });
-
-  render();
 }
