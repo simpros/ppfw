@@ -18,6 +18,9 @@ const port = portText === null ? 80 : Number(portText);
 
 startProxyServer(routes, { port });
 
+process.stdin.resume();
+process.stdin.on("end", () => process.exit(0));
+
 function flagValue(args: string[], flag: string): string | null {
   const index = args.indexOf(flag);
   if (index === -1) return null;

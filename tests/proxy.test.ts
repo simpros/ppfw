@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AppConfig } from "../src/config/app.ts";
-import type { SpawnedChild } from "../src/forward.ts";
+import type { SpawnFn, SpawnedChild } from "../src/supervisor.ts";
 import {
   buildRootProxyArgs,
   proxyRoutesJson,
@@ -22,6 +22,7 @@ const kido: AppConfig = {
 
 class FakeChild implements SpawnedChild {
   killSignal: string | null = null;
+  stdinClosed = false;
   private resolveExit!: (code: number) => void;
   readonly exited = new Promise<number>((resolve) => {
     this.resolveExit = resolve;
@@ -29,6 +30,10 @@ class FakeChild implements SpawnedChild {
 
   kill(signal?: string): void {
     this.killSignal = signal ?? "SIGTERM";
+  }
+
+  closeStdin(): void {
+    this.stdinClosed = true;
   }
 
   exit(code: number): void {
@@ -154,15 +159,44 @@ describe("RootProxy", () => {
     expect(proxy.status()).toEqual({ phase: "up" });
   });
 
-  test("stop kills the child and returns the proxy to down", async () => {
+  test("stop closes the child's stdin and returns the proxy to down", async () => {
     const { proxy, spawn } = makeProxy({});
     await proxy.start();
     expect(proxy.status()).toEqual({ phase: "up" });
 
     const child = spawn.children[0]!;
     const stopped = proxy.stop();
-    expect(child.killSignal).toBe("SIGTERM");
+    expect(child.stdinClosed).toBe(true);
+    expect(child.killSignal).toBeNull();
     child.exit(0);
+    await stopped;
+    expect(proxy.status()).toEqual({ phase: "down" });
+  });
+
+  test("stop falls back to a signal when the child has no stdin channel", async () => {
+    const children: { child: FakeChild; killSignal: string | null }[] = [];
+    const spawn: SpawnFn = (_argv) => {
+      const child = new FakeChild();
+      children.push({ child, killSignal: null });
+      return {
+        kill: (signal) => {
+          children[children.length - 1]!.killSignal = signal ?? "SIGTERM";
+        },
+        exited: child.exited,
+      };
+    };
+    const proxy = new RootProxy({
+      routes: [{ host: "a.local", port: 1 }],
+      scriptPath: SCRIPT,
+      spawn,
+      probe: () => Promise.resolve(true),
+      pollIntervalMs: 1,
+      startupTimeoutMs: 20,
+    });
+    await proxy.start();
+    const stopped = proxy.stop();
+    expect(children[0]!.killSignal).toBe("SIGTERM");
+    children[0]!.child.exit(0);
     await stopped;
     expect(proxy.status()).toEqual({ phase: "down" });
   });
@@ -195,12 +229,12 @@ describe("RootProxy", () => {
     expect(proxy.status()).toEqual({ phase: "down" });
   });
 
-  test("start kills the child when the port never opens before the deadline", async () => {
+  test("start closes the child's stdin when the port never opens before the deadline", async () => {
     const spawn = new FakeSpawn();
     const { proxy } = makeProxy({ spawn, probeOpen: false });
     await proxy.start();
     expect(proxy.status()).toEqual({ phase: "down" });
-    expect(spawn.children[0]!.killSignal).toBe("SIGTERM");
+    expect(spawn.children[0]!.stdinClosed).toBe(true);
   });
 
   test("stop on a never-started proxy is a no-op", async () => {

@@ -3,6 +3,7 @@ import { connect } from "node:net";
 export interface SpawnedChild {
   kill(signal?: NodeJS.Signals): void;
   exited: Promise<number>;
+  closeStdin?: () => void;
 }
 
 export type SpawnFn = (argv: string[]) => SpawnedChild;
@@ -17,6 +18,19 @@ export const bunSpawn: SpawnFn = (argv) => {
   return {
     kill: (signal) => proc.kill(signal),
     exited: proc.exited,
+  };
+};
+
+export const bunSpawnWithStdin: SpawnFn = (argv) => {
+  const proc = Bun.spawn(argv, {
+    stdin: "pipe",
+    stdout: "ignore",
+    stderr: "ignore",
+  });
+  return {
+    kill: (signal) => proc.kill(signal),
+    exited: proc.exited,
+    closeStdin: () => proc.stdin?.end(),
   };
 };
 
@@ -45,6 +59,7 @@ export interface StartupWatchOptions {
   isCurrent: () => boolean;
   onUp: () => void;
   onFailed: () => void;
+  shutdown?: (child: SpawnedChild) => void;
 }
 
 export async function runStartupWatch(options: StartupWatchOptions): Promise<void> {
@@ -57,6 +72,7 @@ export async function runStartupWatch(options: StartupWatchOptions): Promise<voi
     isCurrent,
     onUp,
     onFailed,
+    shutdown,
   } = options;
 
   const deadline = Date.now() + startupTimeoutMs;
@@ -78,6 +94,7 @@ export async function runStartupWatch(options: StartupWatchOptions): Promise<voi
 
   if (isCurrent()) {
     onFailed();
-    child.kill("SIGTERM");
+    if (shutdown) shutdown(child);
+    else child.kill("SIGTERM");
   }
 }

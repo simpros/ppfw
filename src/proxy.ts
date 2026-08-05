@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import type { AppConfig } from "./config/app.ts";
 import {
-  bunSpawn,
+  bunSpawnWithStdin,
   runStartupWatch,
   tcpProbe,
   type ProbeFn,
@@ -85,7 +85,7 @@ export class RootProxy {
     this.routes = options.routes;
     this.port = options.port ?? DEFAULT_PORT;
     this.scriptPath = options.scriptPath ?? join(import.meta.dir, "root-proxy.ts");
-    this.spawn = options.spawn ?? bunSpawn;
+    this.spawn = options.spawn ?? bunSpawnWithStdin;
     this.probe = options.probe ?? tcpProbe;
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     this.startupTimeoutMs = options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS;
@@ -125,7 +125,7 @@ export class RootProxy {
     this.generation += 1;
     this.markDown();
     if (child) {
-      child.kill("SIGTERM");
+      this.shutdown(child);
       await child.exited.catch(() => 0);
     }
   }
@@ -148,7 +148,13 @@ export class RootProxy {
         this.watchExit(child, generation);
       },
       onFailed: () => this.markDown(),
+      shutdown: (c) => this.shutdown(c),
     });
+  }
+
+  private shutdown(child: SpawnedChild): void {
+    if (child.closeStdin) child.closeStdin();
+    else child.kill("SIGTERM");
   }
 
   private watchExit(child: SpawnedChild, generation: number): void {
