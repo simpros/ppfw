@@ -1,11 +1,11 @@
-import type { AppConfig, PortEntry } from "./config/app.ts";
+import type { AppConfig } from "./config/app.ts";
 import {
+  ChildSupervisor,
   bunSpawn,
-  runStartupWatch,
   tcpProbe,
+  type ChildSupervisorOptions,
   type ProbeFn,
   type SpawnFn,
-  type SpawnedChild,
 } from "./supervisor.ts";
 
 export type { ProbeFn, SpawnFn, SpawnedChild } from "./supervisor.ts";
@@ -45,11 +45,7 @@ const DEFAULT_POLL_INTERVAL_MS = 100;
 const DEFAULT_STARTUP_TIMEOUT_MS = 10_000;
 
 interface Entry {
-  app: AppConfig;
-  port: PortEntry;
-  phase: ForwardPhase;
-  child: SpawnedChild | null;
-  generation: number;
+  supervisor: ChildSupervisor | null;
 }
 
 export class ForwardEngine {
@@ -70,26 +66,31 @@ export class ForwardEngine {
     for (const app of options.apps) {
       for (const port of app.ports) {
         if (!port.forward) continue;
-        this.entries.set(forwardKey(app.dir, port.name), {
-          app,
-          port,
-          phase: "stopped",
-          child: null,
-          generation: 0,
-        });
+        const remote = app.remote ?? this.defaultRemote;
+        const supervisor = remote === null
+          ? null
+          : new ChildSupervisor(this.supervisorOptions(
+              ["ssh", ...buildSshArgs(port.port, remote)],
+              port.port,
+            ));
+        const entry: Entry = {
+          supervisor,
+        };
+        supervisor?.onChange(() => this.emit());
+        this.entries.set(forwardKey(app.dir, port.name), entry);
       }
     }
   }
 
   status(key: string): ForwardStatus | null {
     const entry = this.entries.get(key);
-    return entry ? { phase: entry.phase } : null;
+    return entry ? { phase: entry.supervisor?.status().phase ?? "stopped" } : null;
   }
 
   statuses(): Map<string, ForwardStatus> {
     const map = new Map<string, ForwardStatus>();
     for (const [key, entry] of this.entries) {
-      map.set(key, { phase: entry.phase });
+      map.set(key, { phase: entry.supervisor?.status().phase ?? "stopped" });
     }
     return map;
   }
@@ -102,92 +103,36 @@ export class ForwardEngine {
   async start(appDir: string, portName: string): Promise<void> {
     const key = forwardKey(appDir, portName);
     const entry = this.entries.get(key);
-    if (!entry || entry.phase !== "stopped") return;
-
-    const remote = entry.app.remote ?? this.defaultRemote;
-    if (!remote) return;
-
-    entry.phase = "starting";
-    entry.generation += 1;
-    const generation = entry.generation;
-    this.emit();
-
-    let child: SpawnedChild;
-    try {
-      child = this.spawn(["ssh", ...buildSshArgs(entry.port.port, remote)]);
-    } catch {
-      this.markStopped(entry);
-      return;
-    }
-    entry.child = child;
-
-    await this.runStartup(entry, child, generation);
+    if (!entry?.supervisor) return;
+    await entry.supervisor.start();
   }
 
   async stop(appDir: string, portName: string): Promise<void> {
     const key = forwardKey(appDir, portName);
     const entry = this.entries.get(key);
-    if (!entry || entry.phase === "stopped") return;
-    await this.teardown(entry);
+    if (!entry?.supervisor) return;
+    await entry.supervisor.stop();
   }
 
   async stopAll(): Promise<void> {
     const pending: Promise<void>[] = [];
     for (const entry of this.entries.values()) {
-      if (entry.phase === "stopped") continue;
-      pending.push(this.teardown(entry));
+      if (!entry.supervisor) continue;
+      pending.push(entry.supervisor.stop());
     }
     await Promise.all(pending);
   }
 
-  private async teardown(entry: Entry): Promise<void> {
-    const child = entry.child;
-    entry.generation += 1;
-    this.markStopped(entry);
-    if (child) {
-      child.kill("SIGTERM");
-      await child.exited.catch(() => 0);
-    }
-  }
-
-  private async runStartup(
-    entry: Entry,
-    child: SpawnedChild,
-    generation: number,
-  ): Promise<void> {
-    await runStartupWatch({
-      child,
+  private supervisorOptions(argv: string[], port: number): ChildSupervisorOptions {
+    return {
+      label: "SSH forward",
+      argv,
+      port,
+      spawn: this.spawn,
       probe: this.probe,
-      port: entry.port.port,
       pollIntervalMs: this.pollIntervalMs,
       startupTimeoutMs: this.startupTimeoutMs,
-      isCurrent: () =>
-        entry.generation === generation && entry.phase === "starting",
-      onUp: () => {
-        entry.phase = "up";
-        this.emit();
-        this.watchExit(entry, child, generation);
-      },
-      onFailed: () => this.markStopped(entry),
-    });
-  }
-
-  private watchExit(
-    entry: Entry,
-    child: SpawnedChild,
-    generation: number,
-  ): void {
-    void child.exited.then(() => {
-      if (entry.generation === generation && entry.phase === "up") {
-        this.markStopped(entry);
-      }
-    });
-  }
-
-  private markStopped(entry: Entry): void {
-    entry.phase = "stopped";
-    entry.child = null;
-    this.emit();
+    };
   }
 
   private emit(): void {
