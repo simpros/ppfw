@@ -1,9 +1,9 @@
-import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { parse } from "yaml";
 import { ConfigError, messageOf } from "../errors.ts";
 import { expandPath } from "../paths.ts";
+import { nodeFileSystem, type FileSystem } from "../filesystem.ts";
 
 /**
  * Collision-safe default: `.localhost` is reserved for loopback (RFC 6761),
@@ -21,6 +21,7 @@ export interface LoadGlobalConfigOptions {
   configDir?: string;
   cwd?: string;
   homeDir?: string;
+  fileSystem?: FileSystem;
 }
 
 export function globalConfigDir(
@@ -38,13 +39,14 @@ export function loadGlobalConfig(options: LoadGlobalConfigOptions = {}): GlobalC
   const homeDir = options.homeDir ?? homedir();
   const dir = options.configDir ?? globalConfigDir(process.env, homeDir);
   const file = join(dir, "config.yaml");
+  const fileSystem = options.fileSystem ?? nodeFileSystem;
   const config = defaults(cwd);
 
-  if (!existsSync(file)) {
+  if (!fileSystem.exists(file)) {
     return config;
   }
 
-  const raw = readFileSync(file, "utf8");
+  const raw = fileSystem.readFile(file);
   let doc: unknown;
   try {
     doc = parse(raw);

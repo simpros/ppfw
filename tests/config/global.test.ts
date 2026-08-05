@@ -8,6 +8,7 @@ import {
   globalConfigDir,
   loadGlobalConfig,
 } from "../../src/config/global.ts";
+import type { FileSystem } from "../../src/filesystem.ts";
 
 async function configDirWith(content: string | null): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "ppfw-config-"));
@@ -34,6 +35,25 @@ describe("globalConfigDir", () => {
 });
 
 describe("loadGlobalConfig", () => {
+  test("uses the supplied filesystem interface", () => {
+    const fileSystem: FileSystem = {
+      exists: (path) => path === "/config/config.yaml",
+      isDirectory: () => false,
+      readDirectory: () => [],
+      readFile: () => "workspace: ~/dev\ndefault_remote: devbox\n",
+    };
+    expect(loadGlobalConfig({
+      configDir: "/config",
+      cwd: "/work",
+      homeDir: "/home/u",
+      fileSystem,
+    })).toEqual({
+      workspaceRoot: "/home/u/dev",
+      defaultRemote: "devbox",
+      aliasSuffix: DEFAULT_ALIAS_SUFFIX,
+    });
+  });
+
   test("missing file yields all defaults", async () => {
     const configDir = await configDirWith(null);
     const config = loadGlobalConfig({ configDir, cwd: "/work" });
