@@ -172,4 +172,71 @@ describe("buildView", () => {
     expect(v.groups[0]!.rows[3]!.state).toBe("◆ alias");
     expect(v.header.counts).toBe("2 apps · 5 ports · 0 up");
   });
+
+  test("reconnecting rows render with the backoff and drop reason inline", () => {
+    const statuses = new Map<string, ForwardStatus>([
+      [
+        forwardKey("/ws/kido", "frontend"),
+        { phase: "reconnecting", note: "Connection reset by peer", backoffMs: 4000 },
+      ],
+    ]);
+    const v = buildView({
+      workspaceRoot: "/ws",
+      apps: [kido, backend],
+      collapsed: new Set(),
+      statuses,
+    });
+    expect(v.groups[0]!.rows[0]!.state).toBe("◐ recon");
+    expect(v.groups[0]!.rows[0]!.note).toBe("backoff 4s · Connection reset by peer");
+    expect(v.header.counts).toBe("2 apps · 5 ports · 0 up");
+  });
+
+  test("error rows render with the reason inline and do not count as up", () => {
+    const statuses = new Map<string, ForwardStatus>([
+      [
+        forwardKey("/ws/kido", "api"),
+        { phase: "error", note: "auth failed · Permission denied (publickey)" },
+      ],
+    ]);
+    const v = buildView({
+      workspaceRoot: "/ws",
+      apps: [kido, backend],
+      collapsed: new Set(),
+      statuses,
+    });
+    expect(v.groups[0]!.rows[1]!.state).toBe("✗ err");
+    expect(v.groups[0]!.rows[1]!.note).toBe("auth failed · Permission denied (publickey)");
+    expect(v.header.counts).toBe("2 apps · 5 ports · 0 up");
+  });
+
+  test("error rows without a reason fall back to a generic note", () => {
+    const statuses = new Map<string, ForwardStatus>([
+      [forwardKey("/ws/kido", "api"), { phase: "error" }],
+    ]);
+    const v = buildView({
+      workspaceRoot: "/ws",
+      apps: [kido, backend],
+      collapsed: new Set(),
+      statuses,
+    });
+    expect(v.groups[0]!.rows[1]!.state).toBe("✗ err");
+    expect(v.groups[0]!.rows[1]!.note).not.toBe("");
+  });
+
+  test("long error reasons are truncated inline", () => {
+    const statuses = new Map<string, ForwardStatus>([
+      [
+        forwardKey("/ws/kido", "api"),
+        { phase: "error", note: "auth failed · ".repeat(20) },
+      ],
+    ]);
+    const v = buildView({
+      workspaceRoot: "/ws",
+      apps: [kido, backend],
+      collapsed: new Set(),
+      statuses,
+    });
+    expect(v.groups[0]!.rows[1]!.note.length).toBeLessThanOrEqual(80);
+    expect(v.groups[0]!.rows[1]!.note).toEndWith("…");
+  });
 });

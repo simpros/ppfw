@@ -49,17 +49,36 @@ class FakeSpawn {
   calls: string[][] = [];
   children: FakeChild[] = [];
   error: Error | null = null;
+  probeOpen = true;
+  portInUse = false;
+  private live = 0;
 
   fn = (argv: string[]): SpawnedChild => {
     if (this.error) throw this.error;
     this.calls.push(argv);
     const child = new FakeChild();
     this.children.push(child);
+    this.live += 1;
+    child.exited.then(() => {
+      this.live -= 1;
+    });
     return child;
   };
+
+  /** Port 80 opens while the proxy child is alive, and closes when it exits. */
+  probe = (): Promise<boolean> =>
+    Promise.resolve(this.portInUse || (this.probeOpen && this.live > 0));
 }
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
+const tick = (ms = 5) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function waitFor(check: () => boolean, timeoutMs = 500): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!check()) {
+    if (Date.now() > deadline) throw new Error("timed out waiting for condition");
+    await tick();
+  }
+}
 
 const SCRIPT = "/ppfw/src/root-proxy.ts";
 
@@ -68,9 +87,13 @@ function makeProxy(overrides: {
   port?: number;
   spawn?: FakeSpawn;
   probeOpen?: boolean;
+  portInUse?: boolean;
   escalate?: () => Promise<number>;
+  baseBackoffMs?: number;
 }) {
   const spawn = overrides.spawn ?? new FakeSpawn();
+  if ("probeOpen" in overrides) spawn.probeOpen = overrides.probeOpen!;
+  if ("portInUse" in overrides) spawn.portInUse = overrides.portInUse!;
   const proxy = new RootProxy({
     routes: overrides.routes ?? [
       { host: "frontend.kido.local", port: 5173 },
@@ -80,9 +103,10 @@ function makeProxy(overrides: {
     scriptPath: SCRIPT,
     spawn: spawn.fn,
     escalate: overrides.escalate ?? (() => Promise.resolve(0)),
-    probe: () => Promise.resolve(overrides.probeOpen ?? true),
+    probe: spawn.probe,
     pollIntervalMs: 1,
     startupTimeoutMs: 20,
+    baseBackoffMs: overrides.baseBackoffMs ?? 8,
   });
   return { proxy, spawn };
 }
@@ -181,13 +205,20 @@ describe("RootProxy", () => {
         order.push("escalate");
         return Promise.resolve(0);
       },
-      probe: () => Promise.resolve(true),
+      probe: spawn.probe,
       pollIntervalMs: 1,
       startupTimeoutMs: 20,
     });
     await proxy.start();
     expect(order).toEqual(["escalate", "spawn"]);
     expect(proxy.status()).toEqual({ phase: "up", lastError: null });
+  });
+
+  test("starting with port 80 already in use marks error and does not spawn", async () => {
+    const { proxy, spawn } = makeProxy({ portInUse: true });
+    await proxy.start();
+    expect(spawn.calls).toEqual([]);
+    expect(proxy.status()).toEqual({ phase: "down", lastError: "port in use" });
   });
 
   test("a failed escalation leaves the proxy down without spawning", async () => {
@@ -277,7 +308,7 @@ describe("RootProxy", () => {
       scriptPath: SCRIPT,
       spawn,
       escalate: () => Promise.resolve(0),
-      probe: () => Promise.resolve(true),
+      probe: () => Promise.resolve(children.length > 0),
       pollIntervalMs: 1,
       startupTimeoutMs: 20,
     });
@@ -289,13 +320,14 @@ describe("RootProxy", () => {
     expect(proxy.status()).toEqual({ phase: "down", lastError: null });
   });
 
-  test("unexpected child exit while up returns the proxy to down", async () => {
+  test("unexpected child exit while up reconnects and returns to up", async () => {
     const { proxy, spawn } = makeProxy({});
     await proxy.start();
     expect(proxy.status()).toEqual({ phase: "up", lastError: null });
     spawn.children[0]!.exit(1);
-    await tick();
-    expect(proxy.status()).toEqual({ phase: "down", lastError: null });
+    await waitFor(() => spawn.children.length === 2);
+    await waitFor(() => proxy.status().phase === "up");
+    expect(proxy.status()).toEqual({ phase: "up", lastError: null });
   });
 
   test("child exit while starting returns the proxy to down", async () => {
@@ -314,7 +346,10 @@ describe("RootProxy", () => {
     spawn.error = new Error("spawn sudo ENOENT");
     const { proxy } = makeProxy({ spawn });
     await proxy.start();
-    expect(proxy.status()).toEqual({ phase: "down", lastError: "spawn sudo ENOENT" });
+    expect(proxy.status()).toEqual({
+      phase: "down",
+      lastError: "cannot start root proxy: spawn sudo ENOENT",
+    });
   });
 
   test("a failed startup surfaces the child's exit code and stderr", async () => {
@@ -348,7 +383,7 @@ describe("RootProxy", () => {
     await started;
     expect(proxy.status()).toEqual({
       phase: "down",
-      lastError: "child exited with code 1: sudo: no tty present",
+      lastError: "sudo escalation failed · sudo: no tty present",
     });
   });
 

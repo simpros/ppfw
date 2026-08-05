@@ -3,6 +3,7 @@ import {
   ChildSupervisor,
   bunSpawn,
   tcpProbe,
+  type ChildPhase,
   type ChildSupervisorOptions,
   type ProbeFn,
   type SpawnFn,
@@ -10,10 +11,14 @@ import {
 
 export type { ProbeFn, SpawnFn, SpawnedChild } from "./supervisor.ts";
 
-export type ForwardPhase = "stopped" | "starting" | "up";
+export type ForwardPhase = ChildPhase;
 
 export interface ForwardStatus {
   phase: ForwardPhase;
+  /** Inline reason for the row; set while reconnecting or in error. */
+  note?: string;
+  /** Delay before the next reconnect attempt; set while reconnecting. */
+  backoffMs?: number;
 }
 
 export interface ForwardEngineOptions {
@@ -23,6 +28,8 @@ export interface ForwardEngineOptions {
   probe?: ProbeFn;
   pollIntervalMs?: number;
   startupTimeoutMs?: number;
+  baseBackoffMs?: number;
+  maxBackoffMs?: number;
 }
 
 export function forwardKey(appDir: string, portName: string): string {
@@ -43,6 +50,8 @@ export function buildSshArgs(port: number, remote: string): string[] {
 
 const DEFAULT_POLL_INTERVAL_MS = 100;
 const DEFAULT_STARTUP_TIMEOUT_MS = 10_000;
+const DEFAULT_BACKOFF_MS = 1_000;
+const DEFAULT_MAX_BACKOFF_MS = 30_000;
 
 interface ForwardEntry {
   supervisor: ChildSupervisor | null;
@@ -55,6 +64,8 @@ export class ForwardEngine {
   private readonly probe: ProbeFn;
   private readonly pollIntervalMs: number;
   private readonly startupTimeoutMs: number;
+  private readonly baseBackoffMs: number;
+  private readonly maxBackoffMs: number;
   private readonly defaultRemote: string | null;
 
   constructor(options: ForwardEngineOptions) {
@@ -62,6 +73,8 @@ export class ForwardEngine {
     this.probe = options.probe ?? tcpProbe;
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     this.startupTimeoutMs = options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS;
+    this.baseBackoffMs = options.baseBackoffMs ?? DEFAULT_BACKOFF_MS;
+    this.maxBackoffMs = options.maxBackoffMs ?? DEFAULT_MAX_BACKOFF_MS;
     this.defaultRemote = options.defaultRemote;
     for (const app of options.apps) {
       for (const port of app.ports) {
@@ -84,13 +97,14 @@ export class ForwardEngine {
 
   status(key: string): ForwardStatus | null {
     const entry = this.entries.get(key);
-    return entry ? { phase: entry.supervisor?.status().phase ?? "stopped" } : null;
+    if (!entry) return null;
+    return forwardStatusOf(entry.supervisor);
   }
 
   statuses(): Map<string, ForwardStatus> {
     const map = new Map<string, ForwardStatus>();
     for (const [key, entry] of this.entries) {
-      map.set(key, { phase: entry.supervisor?.status().phase ?? "stopped" });
+      map.set(key, forwardStatusOf(entry.supervisor));
     }
     return map;
   }
@@ -132,10 +146,21 @@ export class ForwardEngine {
       probe: this.probe,
       pollIntervalMs: this.pollIntervalMs,
       startupTimeoutMs: this.startupTimeoutMs,
+      baseBackoffMs: this.baseBackoffMs,
+      maxBackoffMs: this.maxBackoffMs,
     };
   }
 
   private emit(): void {
     for (const listener of this.listeners) listener();
   }
+}
+
+function forwardStatusOf(supervisor: ChildSupervisor | null): ForwardStatus {
+  if (!supervisor) return { phase: "stopped" };
+  const status = supervisor.status();
+  const forward: ForwardStatus = { phase: status.phase };
+  if (status.lastError !== null) forward.note = status.lastError;
+  if (status.backoffMs !== undefined) forward.backoffMs = status.backoffMs;
+  return forward;
 }

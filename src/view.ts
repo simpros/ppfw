@@ -51,7 +51,7 @@ export function buildView(options: BuildViewOptions): View {
     (n, app) =>
       n +
       app.ports.filter(
-        (port) => port.forward && phaseFor(app, port, options) === "up",
+        (port) => port.forward && statusFor(app, port, options)?.phase === "up",
       ).length,
     0,
   );
@@ -102,21 +102,49 @@ function buildRow(
       standalone: true,
     };
   }
-  const phase = phaseFor(app, port, options);
+  const status = statusFor(app, port, options);
+  let state = "○ stop";
+  let note = "";
+  if (status?.phase === "up") {
+    state = "● up";
+  } else if (status?.phase === "starting") {
+    note = "starting…";
+  } else if (status?.phase === "reconnecting") {
+    state = "◐ recon";
+    note = reconnectNote(status);
+  } else if (status?.phase === "error") {
+    state = "✗ err";
+    note = status.note ?? "start failed";
+  }
   return {
-    state: phase === "up" ? "● up" : "○ stop",
+    state,
     name: port.name,
     port: `:${port.port}`,
     alias: port.alias ? `→  ${port.alias}` : "(no alias)",
-    note: phase === "starting" ? "starting…" : "",
+    note: truncate(note),
     standalone: false,
   };
 }
 
-function phaseFor(
+const MAX_NOTE_LENGTH = 80;
+
+function truncate(note: string): string {
+  if (note.length <= MAX_NOTE_LENGTH) return note;
+  return `${note.slice(0, MAX_NOTE_LENGTH - 1)}…`;
+}
+
+function reconnectNote(status: ForwardStatus): string {
+  const backoff =
+    status.backoffMs !== undefined
+      ? `backoff ${Math.round(status.backoffMs / 1000)}s`
+      : "reconnecting";
+  return status.note ? `${backoff} · ${status.note}` : backoff;
+}
+
+function statusFor(
   app: AppConfig,
   port: PortEntry,
   options: BuildViewOptions,
-): ForwardStatus["phase"] | undefined {
-  return options.statuses?.get(forwardKey(app.dir, port.name))?.phase;
+): ForwardStatus | undefined {
+  return options.statuses?.get(forwardKey(app.dir, port.name));
 }
