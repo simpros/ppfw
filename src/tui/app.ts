@@ -17,18 +17,21 @@ export interface TuiOptions {
 }
 
 export interface Palette {
+  fg: string;
   dim: string;
   accent: string;
   selected: string;
 }
 
 const DARK_PALETTE: Palette = {
+  fg: "#e4e4e4",
   dim: "#8a8a8a",
   accent: "#5fd7ff",
   selected: "#ffd75f",
 };
 
 const LIGHT_PALETTE: Palette = {
+  fg: "#1a1a1a",
   dim: "#5f5f5f",
   accent: "#005f87",
   selected: "#af5f00",
@@ -38,11 +41,25 @@ export function paletteFor(themeMode: ThemeMode | null): Palette {
   return themeMode === "light" ? LIGHT_PALETTE : DARK_PALETTE;
 }
 
+/**
+ * Fallback for terminals that never answer the OSC 10/11 theme query:
+ * COLORFGBG (set by several terminal families) is "fg;bg" ANSI indices.
+ */
+export function themeFromEnv(
+  env: Record<string, string | undefined>,
+): ThemeMode | null {
+  const bg = env.COLORFGBG?.split(";").pop();
+  if (bg === "7" || bg === "15") return "light";
+  if (bg !== undefined && bg !== "" && bg !== "default") return "dark";
+  return null;
+}
+
 const THEME_DETECT_TIMEOUT_MS = 300;
 
 export async function runTui(options: TuiOptions): Promise<void> {
   const renderer = await createCliRenderer({ exitOnCtrlC: true });
   await renderer.waitForThemeMode(THEME_DETECT_TIMEOUT_MS);
+  let themeMode: ThemeMode | null = renderer.themeMode ?? themeFromEnv(process.env);
   const collapsed = new Set<string>();
   let selected = 0;
   let content: BoxRenderable | null = null;
@@ -83,12 +100,12 @@ export async function runTui(options: TuiOptions): Promise<void> {
       `${row.alias}${row.note ? `   ${row.note}` : ""}`;
     return new TextRenderable(renderer, {
       content: line,
-      fg: row.standalone ? colors.accent : undefined,
+      fg: row.standalone ? colors.accent : colors.fg,
     });
   };
 
   const render = (): void => {
-    const colors = paletteFor(renderer.themeMode);
+    const colors = paletteFor(themeMode);
     const view = buildView({
       workspaceRoot: options.workspaceRoot,
       apps: options.apps,
@@ -98,13 +115,14 @@ export async function runTui(options: TuiOptions): Promise<void> {
 
     setText(
       header,
-      new TextRenderable(renderer, { content: view.header.left }),
+      new TextRenderable(renderer, { content: view.header.left, fg: colors.fg }),
       new TextRenderable(renderer, { content: view.header.counts, fg: colors.dim }),
     );
     setText(
       footer,
       new TextRenderable(renderer, { content: view.footer.keys, fg: colors.dim }),
     );
+    footer.borderColor = colors.dim;
 
     if (content) {
       body.remove(content);
@@ -139,7 +157,7 @@ export async function runTui(options: TuiOptions): Promise<void> {
       groupHeader.add(
         new TextRenderable(renderer, {
           content: `${group.collapsedGlyph} ${group.name}`,
-          fg: index === selected ? colors.selected : undefined,
+          fg: index === selected ? colors.selected : colors.fg,
           attributes: createTextAttributes({ bold: true }),
         }),
       );
@@ -177,7 +195,10 @@ export async function runTui(options: TuiOptions): Promise<void> {
     if (key.name === "space") toggleSelected();
   });
 
-  renderer.on("theme_mode", () => render());
+  renderer.on("theme_mode", (mode: ThemeMode) => {
+    themeMode = mode;
+    render();
+  });
 
   render();
 }
