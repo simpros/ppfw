@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 import { parse } from "yaml";
-import { ConfigError } from "../errors.ts";
+import { ConfigError, messageOf } from "../errors.ts";
 
 export interface PortEntry {
   name: string;
@@ -175,8 +175,4 @@ function deriveAlias(portName: string, appName: string, suffix: string): string 
 
 function fail(where: string, message: string): ConfigError {
   return new ConfigError(`${where}: ${message}`);
-}
-
-function messageOf(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause);
 }

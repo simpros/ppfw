@@ -22,7 +22,7 @@ const backend: AppConfig = {
 };
 
 function view(collapsed: ReadonlySet<string> = new Set()) {
-  return buildView({ workspace: "/ws", apps: [kido, backend], collapsed });
+  return buildView({ workspaceRoot: "/ws", apps: [kido, backend], collapsed });
 }
 
 describe("buildView", () => {
@@ -34,7 +34,8 @@ describe("buildView", () => {
 
   test("apps render as groups in the given order", () => {
     const v = view();
-    expect(v.groups.map((g) => g.app)).toEqual(["kido", "backend"]);
+    expect(v.groups.map((g) => g.name)).toEqual(["kido", "backend"]);
+    expect(v.groups.map((g) => g.dir)).toEqual(["/ws/kido", "/ws/backend"]);
   });
 
   test("expanded group shows a stopped row per named port", () => {
@@ -42,10 +43,10 @@ describe("buildView", () => {
     expect(group.collapsedGlyph).toBe("▼");
     expect(group.remoteLabel).toBe("remote devbox-a");
     expect(group.rows).toEqual([
-      { state: "○ stop", name: "frontend", port: ":5173", alias: "→  frontend.kido.local", note: "" },
-      { state: "○ stop", name: "api", port: ":3232", alias: "→  api-v2.kido.local", note: "" },
-      { state: "○ stop", name: "db", port: ":5432", alias: "(no alias)", note: "" },
-      { state: "◆ alias", name: "localui", port: ":9000", alias: "→  localui.kido.local", note: "standalone · no forward" },
+      { state: "○ stop", name: "frontend", port: ":5173", alias: "→  frontend.kido.local", note: "", standalone: false },
+      { state: "○ stop", name: "api", port: ":3232", alias: "→  api-v2.kido.local", note: "", standalone: false },
+      { state: "○ stop", name: "db", port: ":5432", alias: "(no alias)", note: "", standalone: false },
+      { state: "◆ alias", name: "localui", port: ":9000", alias: "→  localui.kido.local", note: "standalone · no forward", standalone: true },
     ]);
   });
 
@@ -56,7 +57,7 @@ describe("buildView", () => {
 
   test("default remote applies to apps without an override", () => {
     const v = buildView({
-      workspace: "/ws",
+      workspaceRoot: "/ws",
       apps: [kido, backend],
       collapsed: new Set(),
       defaultRemote: "devbox",
@@ -66,13 +67,23 @@ describe("buildView", () => {
   });
 
   test("collapsed group hides its rows", () => {
-    const group = view(new Set(["kido"])).groups[0]!;
+    const group = view(new Set(["/ws/kido"])).groups[0]!;
     expect(group.collapsedGlyph).toBe("▶");
     expect(group.rows).toEqual([]);
   });
 
+  test("collapse is keyed by directory, not name", () => {
+    const v = buildView({
+      workspaceRoot: "/ws",
+      apps: [kido, { ...backend, name: "kido" }],
+      collapsed: new Set(["/ws/kido"]),
+    });
+    expect(v.groups[0]!.collapsedGlyph).toBe("▶");
+    expect(v.groups[1]!.collapsedGlyph).toBe("▼");
+  });
+
   test("empty workspace still renders header and footer", () => {
-    const v = buildView({ workspace: "/ws", apps: [], collapsed: new Set() });
+    const v = buildView({ workspaceRoot: "/ws", apps: [], collapsed: new Set() });
     expect(v.header.counts).toBe("0 apps · 0 ports · 0 up");
     expect(v.groups).toEqual([]);
     expect(v.footer.keys.length).toBeGreaterThan(0);

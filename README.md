@@ -32,9 +32,9 @@ bun src/main.ts --workspace ~/dev --remote devbox
 `~/.config/ppfw/config.yaml` (honors `$XDG_CONFIG_HOME`):
 
 ```yaml
-workspace: ~/dev        # root scanned for .ppfw.config; defaults to cwd
-default_remote: devbox  # fallback ~/.ssh/config host alias
-alias_suffix: local     # suffix for derived alias hostnames
+workspace: ~/dev              # root scanned for .ppfw.config; defaults to cwd
+default_remote: devbox        # fallback ~/.ssh/config host alias
+alias_suffix: ppfw.localhost  # suffix for derived alias hostnames
 ```
 
 If `alias_suffix` is unset it defaults to `ppfw.localhost` — a collision-safe
@@ -53,16 +53,17 @@ ports:
   frontend: 5173        # bare number = forward + derived alias
   api:
     port: 3232
-    alias: api-v2.kido.local   # full-hostname override
+    alias: api-v2.kido.example   # full-hostname override
   db:
     port: 5432
     alias: false        # forward only
   localui:
     port: 9000
-    forward: false      # standalone alias, no tunnel
+    forward: false      # standalone alias, no forward
 ```
 
-Derived aliases are `<port-name>.<app-name>.<alias_suffix>`.
+Derived aliases are `<port-name>.<app-name>.<alias_suffix>` — with the config
+above, `frontend` becomes `frontend.kido.ppfw.localhost`.
 
 ## Develop
 

@@ -1,7 +1,7 @@
 import { UsageError } from "./errors.ts";
 
 export interface CliOptions {
-  workspace: string | null;
+  workspaceRoot: string | null;
   remote: string | null;
   help: boolean;
 }
@@ -16,14 +16,14 @@ options:
   -h, --help           show this help`;
 
 export function parseArgs(argv: string[]): CliOptions {
-  const options: CliOptions = { workspace: null, remote: null, help: false };
+  const options: CliOptions = { workspaceRoot: null, remote: null, help: false };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
     if (arg === "-h" || arg === "--help") {
       options.help = true;
     } else if (arg === "--workspace" || arg.startsWith("--workspace=")) {
-      options.workspace = flagValue(arg, argv[i + 1]);
+      options.workspaceRoot = flagValue(arg, argv[i + 1]);
       if (!arg.includes("=")) i++;
     } else if (arg === "--remote" || arg.startsWith("--remote=")) {
       options.remote = flagValue(arg, argv[i + 1]);

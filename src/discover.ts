@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseAppConfig, type AppConfig } from "./config/app.ts";
-import { ConfigError } from "./errors.ts";
+import { ConfigError, messageOf } from "./errors.ts";
 
 export const DEFAULT_MAX_DEPTH = 3;
 const APP_CONFIG_FILE = ".ppfw.config";
@@ -13,18 +13,18 @@ export interface DiscoverOptions {
 }
 
 export function discoverApps(
-  workspace: string,
+  workspaceRoot: string,
   options: DiscoverOptions,
 ): AppConfig[] {
-  if (!existsSync(workspace)) {
-    throw new ConfigError(`workspace ${workspace} does not exist`);
+  if (!existsSync(workspaceRoot)) {
+    throw new ConfigError(`workspace root ${workspaceRoot} does not exist`);
   }
-  if (!statSync(workspace).isDirectory()) {
-    throw new ConfigError(`workspace ${workspace} is not a directory`);
+  if (!statSync(workspaceRoot).isDirectory()) {
+    throw new ConfigError(`workspace root ${workspaceRoot} is not a directory`);
   }
 
   const apps: AppConfig[] = [];
-  scan(workspace, 0, options.maxDepth ?? DEFAULT_MAX_DEPTH, options.aliasSuffix, apps);
+  scan(workspaceRoot, 0, options.maxDepth ?? DEFAULT_MAX_DEPTH, options.aliasSuffix, apps);
   apps.sort(
     (a, b) => a.name.localeCompare(b.name) || a.dir.localeCompare(b.dir),
   );
@@ -61,8 +61,4 @@ function scan(
     if (entry.name.startsWith(".") || SKIPPED_DIRS.has(entry.name)) continue;
     scan(join(dir, entry.name), depth + 1, maxDepth, aliasSuffix, apps);
   }
-}
-
-function messageOf(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause);
 }

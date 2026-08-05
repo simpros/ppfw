@@ -11,10 +11,12 @@ export interface PortRowView {
   port: string;
   alias: string;
   note: string;
+  standalone: boolean;
 }
 
 export interface AppGroupView {
-  app: string;
+  name: string;
+  dir: string;
   collapsedGlyph: string;
   remoteLabel: string;
   rows: PortRowView[];
@@ -31,7 +33,7 @@ export interface View {
 }
 
 export interface BuildViewOptions {
-  workspace: string;
+  workspaceRoot: string;
   apps: AppConfig[];
   collapsed: ReadonlySet<string>;
   defaultRemote?: string | null;
@@ -44,7 +46,7 @@ export function buildView(options: BuildViewOptions): View {
 
   return {
     header: {
-      left: `ppfw  workspace ${options.workspace}  proxy ○ down`,
+      left: `ppfw  workspace ${options.workspaceRoot}  proxy ○ down`,
       counts: `${options.apps.length} apps · ${portCount} ports · 0 up`,
     },
     groups: options.apps.map((app) => buildGroup(app, options)),
@@ -53,10 +55,11 @@ export function buildView(options: BuildViewOptions): View {
 }
 
 function buildGroup(app: AppConfig, options: BuildViewOptions): AppGroupView {
-  const isCollapsed = options.collapsed.has(app.name);
+  const isCollapsed = options.collapsed.has(app.dir);
   const remote = app.remote ?? options.defaultRemote ?? null;
   return {
-    app: app.name,
+    name: app.name,
+    dir: app.dir,
     collapsedGlyph: isCollapsed ? "▶" : "▼",
     remoteLabel: remote ? `remote ${remote}` : "remote (default)",
     rows: isCollapsed ? [] : app.ports.map(buildRow),
@@ -71,5 +74,6 @@ function buildRow(port: PortEntry): PortRowView {
     port: `:${port.port}`,
     alias: port.alias ? `→  ${port.alias}` : "(no alias)",
     note: standalone ? "standalone · no forward" : "",
+    standalone,
   };
 }

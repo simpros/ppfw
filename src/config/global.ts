@@ -1,8 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { isAbsolute, join, resolve } from "node:path";
+import { join } from "node:path";
 import { parse } from "yaml";
-import { ConfigError } from "../errors.ts";
+import { ConfigError, messageOf } from "../errors.ts";
+import { expandPath } from "../paths.ts";
 
 /**
  * Collision-safe default: `.localhost` is reserved for loopback (RFC 6761),
@@ -11,7 +12,7 @@ import { ConfigError } from "../errors.ts";
 export const DEFAULT_ALIAS_SUFFIX = "ppfw.localhost";
 
 export interface GlobalConfig {
-  workspace: string;
+  workspaceRoot: string;
   defaultRemote: string | null;
   aliasSuffix: string;
 }
@@ -59,7 +60,11 @@ export function loadGlobalConfig(options: LoadGlobalConfigOptions = {}): GlobalC
 
   const map = doc as Record<string, unknown>;
   if ("workspace" in map) {
-    config.workspace = expandPath(stringSetting(file, "workspace", map.workspace), homeDir, cwd);
+    config.workspaceRoot = expandPath(
+      stringSetting(file, "workspace", map.workspace),
+      homeDir,
+      cwd,
+    );
   }
   if ("default_remote" in map) {
     config.defaultRemote = stringSetting(file, "default_remote", map.default_remote);
@@ -71,7 +76,7 @@ export function loadGlobalConfig(options: LoadGlobalConfigOptions = {}): GlobalC
 }
 
 function defaults(cwd: string): GlobalConfig {
-  return { workspace: cwd, defaultRemote: null, aliasSuffix: DEFAULT_ALIAS_SUFFIX };
+  return { workspaceRoot: cwd, defaultRemote: null, aliasSuffix: DEFAULT_ALIAS_SUFFIX };
 }
 
 function stringSetting(file: string, key: string, value: unknown): string {
@@ -79,14 +84,4 @@ function stringSetting(file: string, key: string, value: unknown): string {
     throw new ConfigError(`${file}: \`${key}\` must be a non-empty string`);
   }
   return value;
-}
-
-function expandPath(value: string, homeDir: string, cwd: string): string {
-  if (value === "~") return homeDir;
-  if (value.startsWith("~/")) return join(homeDir, value.slice(2));
-  return isAbsolute(value) ? value : resolve(cwd, value);
-}
-
-function messageOf(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause);
 }

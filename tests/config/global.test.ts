@@ -38,7 +38,7 @@ describe("loadGlobalConfig", () => {
     const configDir = await configDirWith(null);
     const config = loadGlobalConfig({ configDir, cwd: "/work" });
     expect(config).toEqual({
-      workspace: "/work",
+      workspaceRoot: "/work",
       defaultRemote: null,
       aliasSuffix: DEFAULT_ALIAS_SUFFIX,
     });
@@ -58,7 +58,7 @@ describe("loadGlobalConfig", () => {
       homeDir: "/home/u",
     });
     expect(config).toEqual({
-      workspace: "/home/u/dev",
+      workspaceRoot: "/home/u/dev",
       defaultRemote: "devbox",
       aliasSuffix: "example.test",
     });
@@ -67,14 +67,14 @@ describe("loadGlobalConfig", () => {
   test("relative workspace resolves against cwd", async () => {
     const configDir = await configDirWith("workspace: projects");
     const config = loadGlobalConfig({ configDir, cwd: "/work" });
-    expect(config.workspace).toBe("/work/projects");
+    expect(config.workspaceRoot).toBe("/work/projects");
   });
 
   test("partial file leaves other settings at defaults", async () => {
     const configDir = await configDirWith("default_remote: devbox-a\n");
     const config = loadGlobalConfig({ configDir, cwd: "/work" });
     expect(config).toEqual({
-      workspace: "/work",
+      workspaceRoot: "/work",
       defaultRemote: "devbox-a",
       aliasSuffix: DEFAULT_ALIAS_SUFFIX,
     });
@@ -89,7 +89,7 @@ describe("loadGlobalConfig", () => {
   test("empty file yields all defaults", async () => {
     const configDir = await configDirWith("");
     const config = loadGlobalConfig({ configDir, cwd: "/work" });
-    expect(config.workspace).toBe("/work");
+    expect(config.workspaceRoot).toBe("/work");
   });
 
   test("invalid YAML fails fast naming the file", async () => {

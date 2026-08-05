@@ -11,3 +11,7 @@ export class UsageError extends Error {
     this.name = "UsageError";
   }
 }
+
+export function messageOf(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}

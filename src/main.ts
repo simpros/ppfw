@@ -1,9 +1,10 @@
 #!/usr/bin/env bun
-import { isAbsolute, resolve } from "node:path";
+import { homedir } from "node:os";
 import { parseArgs, USAGE } from "./cli.ts";
 import { loadGlobalConfig } from "./config/global.ts";
 import { discoverApps } from "./discover.ts";
 import { ConfigError, UsageError } from "./errors.ts";
+import { expandPath } from "./paths.ts";
 import { runTui } from "./tui/app.ts";
 
 async function main(): Promise<void> {
@@ -14,15 +15,13 @@ async function main(): Promise<void> {
   }
 
   const global = loadGlobalConfig();
-  const workspace = args.workspace
-    ? isAbsolute(args.workspace)
-      ? args.workspace
-      : resolve(process.cwd(), args.workspace)
-    : global.workspace;
+  const workspaceRoot = args.workspaceRoot
+    ? expandPath(args.workspaceRoot, homedir(), process.cwd())
+    : global.workspaceRoot;
   const defaultRemote = args.remote ?? global.defaultRemote;
 
-  const apps = discoverApps(workspace, { aliasSuffix: global.aliasSuffix });
-  await runTui({ workspace, apps, defaultRemote });
+  const apps = discoverApps(workspaceRoot, { aliasSuffix: global.aliasSuffix });
+  await runTui({ workspaceRoot, apps, defaultRemote });
 }
 
 main().catch((error: unknown) => {

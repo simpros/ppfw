@@ -10,7 +10,7 @@ import type { AppConfig } from "../config/app.ts";
 import { buildView, type PortRowView } from "../view.ts";
 
 export interface TuiOptions {
-  workspace: string;
+  workspaceRoot: string;
   apps: AppConfig[];
   defaultRemote: string | null;
 }
@@ -54,20 +54,19 @@ export async function runTui(options: TuiOptions): Promise<void> {
     row: PortRowView,
     widths: { state: number; name: number; port: number },
   ): TextRenderable => {
-    const standalone = row.state.startsWith("◆");
     const line =
       `  ${row.state.padEnd(widths.state)}  ` +
       `${row.name.padEnd(widths.name)} ${row.port.padEnd(widths.port)}  ` +
       `${row.alias}${row.note ? `   ${row.note}` : ""}`;
     return new TextRenderable(renderer, {
       content: line,
-      fg: standalone ? ACCENT : undefined,
+      fg: row.standalone ? ACCENT : undefined,
     });
   };
 
   const render = (): void => {
     const view = buildView({
-      workspace: options.workspace,
+      workspaceRoot: options.workspaceRoot,
       apps: options.apps,
       collapsed,
       defaultRemote: options.defaultRemote,
@@ -115,7 +114,7 @@ export async function runTui(options: TuiOptions): Promise<void> {
       });
       groupHeader.add(
         new TextRenderable(renderer, {
-          content: `${group.collapsedGlyph} ${group.app}`,
+          content: `${group.collapsedGlyph} ${group.name}`,
           fg: index === selected ? SELECTED : undefined,
           attributes: createTextAttributes({ bold: true }),
         }),
@@ -139,8 +138,8 @@ export async function runTui(options: TuiOptions): Promise<void> {
   const toggleSelected = (): void => {
     const app = options.apps[selected];
     if (!app) return;
-    if (collapsed.has(app.name)) collapsed.delete(app.name);
-    else collapsed.add(app.name);
+    if (collapsed.has(app.dir)) collapsed.delete(app.dir);
+    else collapsed.add(app.dir);
     render();
   };
 
