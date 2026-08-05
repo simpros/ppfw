@@ -1,4 +1,4 @@
-import { ConfigError } from "./errors.ts";
+import { ConfigError, messageOf } from "./errors.ts";
 
 export interface Route {
   host: string;
@@ -63,8 +63,4 @@ export function normalizeHost(hostHeader: string | null): string | null {
   const host = hostHeader.trim().toLowerCase();
   if (host === "") return null;
   return host.split(":")[0] ?? host;
-}
-
-function messageOf(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause);
 }

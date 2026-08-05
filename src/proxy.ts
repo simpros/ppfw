@@ -3,6 +3,7 @@ import type { AppConfig } from "./config/app.ts";
 import { RouteTable, type Route } from "./route-table.ts";
 import {
   ChildSupervisor,
+  bunSpawnWithStdin,
   sudoValidateEscalation,
   tcpProbe,
   type EscalateFn,
@@ -89,7 +90,7 @@ export class RootProxy {
           throw new Error(`sudo authentication failed (exit code ${code})`);
         }
       },
-      spawn: options.spawn,
+      spawn: options.spawn ?? bunSpawnWithStdin,
       probe: options.probe ?? tcpProbe,
       shutdown: (child) => {
         if (child.closeStdin) child.closeStdin();

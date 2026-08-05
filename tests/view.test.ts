@@ -29,7 +29,7 @@ function view(collapsed: ReadonlySet<string> = new Set()) {
 describe("buildView", () => {
   test("header shows workspace, proxy status, and counts", () => {
     const v = view();
-    expect(v.header.left).toBe("ppfw  workspace /ws  proxy ○ down");
+    expect(v.header.left).toBe("ppfw  workspace /ws  root proxy ○ down");
     expect(v.header.counts).toBe("2 apps · 5 ports · 0 up");
   });
 
@@ -40,7 +40,7 @@ describe("buildView", () => {
       collapsed: new Set(),
       proxyStatus: { phase: "up", lastError: null },
     });
-    expect(v.header.left).toBe("ppfw  workspace /ws  proxy ● up");
+    expect(v.header.left).toBe("ppfw  workspace /ws  root proxy ● up");
   });
 
   test("header shows the failure reason when the proxy is down with an error", () => {
@@ -51,7 +51,7 @@ describe("buildView", () => {
       proxyStatus: { phase: "down", lastError: "sudo: no tty present" },
     });
     expect(v.header.left).toBe(
-      "ppfw  workspace /ws  proxy ○ down (sudo: no tty present)",
+      "ppfw  workspace /ws  root proxy ○ down (sudo: no tty present)",
     );
   });
 
@@ -62,7 +62,7 @@ describe("buildView", () => {
       collapsed: new Set(),
       proxyStatus: { phase: "down", lastError: "x".repeat(50) },
     });
-    expect(v.header.left).toBe(`ppfw  workspace /ws  proxy ○ down (${"x".repeat(37)}…)`);
+    expect(v.header.left).toBe(`ppfw  workspace /ws  root proxy ○ down (${"x".repeat(37)}…)`);
   });
 
   test("apps render as groups in the given order", () => {

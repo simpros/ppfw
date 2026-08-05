@@ -209,12 +209,18 @@ export async function runTui(options: TuiOptions): Promise<void> {
   };
 
   await new Promise<void>((resolve) => {
+    let settled = false;
     const unsubscribe = options.runtime.onChange(render);
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      unsubscribe();
+      resolve();
+    };
     renderer.keyInput.on("keypress", (key: KeyEvent) => {
       if (key.name === "q") {
-        unsubscribe();
+        finish();
         renderer.destroy();
-        resolve();
         return;
       }
       if (key.name === "up" || key.name === "k") move(-1);
@@ -226,6 +232,8 @@ export async function runTui(options: TuiOptions): Promise<void> {
         if (key.name === "x") void options.runtime.stopForward(item.dir, item.portName);
       }
     });
+
+    renderer.once("destroy", finish);
 
     renderer.on("theme_mode", (mode: ThemeMode) => {
       themeMode = mode;

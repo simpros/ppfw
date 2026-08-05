@@ -58,7 +58,7 @@ export function buildView(options: BuildViewOptions): View {
 
   return {
     header: {
-      left: `ppfw  workspace ${options.workspaceRoot}  proxy ${proxyLabel(
+      left: `ppfw  workspace ${options.workspaceRoot}  root proxy ${proxyLabel(
         options.proxyStatus,
       )}`,
       counts: `${options.apps.length} apps · ${portCount} ports · ${upCount} up`,

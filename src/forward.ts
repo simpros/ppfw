@@ -44,12 +44,12 @@ export function buildSshArgs(port: number, remote: string): string[] {
 const DEFAULT_POLL_INTERVAL_MS = 100;
 const DEFAULT_STARTUP_TIMEOUT_MS = 10_000;
 
-interface Entry {
+interface ForwardEntry {
   supervisor: ChildSupervisor | null;
 }
 
 export class ForwardEngine {
-  private readonly entries = new Map<string, Entry>();
+  private readonly entries = new Map<string, ForwardEntry>();
   private readonly listeners = new Set<() => void>();
   private readonly spawn: SpawnFn;
   private readonly probe: ProbeFn;
@@ -73,7 +73,7 @@ export class ForwardEngine {
               ["ssh", ...buildSshArgs(port.port, remote)],
               port.port,
             ));
-        const entry: Entry = {
+        const entry: ForwardEntry = {
           supervisor,
         };
         supervisor?.onChange(() => this.emit());
