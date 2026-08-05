@@ -48,6 +48,28 @@ export const tcpProbe: ProbeFn = (port) =>
     });
   });
 
+export type EscalateFn = () => Promise<number>;
+
+export function sudoValidateEscalation(port: number): EscalateFn {
+  return async () => {
+    const check = Bun.spawn(["sudo", "-n", "true"], {
+      stdin: "ignore",
+      stdout: "ignore",
+      stderr: "ignore",
+    });
+    if ((await check.exited) === 0) return 0;
+    console.error(
+      `ppfw: sudo password required to run the root proxy on 127.0.0.1:${port}`,
+    );
+    const validate = Bun.spawn(["sudo", "-v"], {
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    return validate.exited;
+  };
+}
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

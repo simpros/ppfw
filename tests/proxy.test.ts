@@ -68,6 +68,7 @@ function makeProxy(overrides: {
   port?: number;
   spawn?: FakeSpawn;
   probeOpen?: boolean;
+  escalate?: () => Promise<number>;
 }) {
   const spawn = overrides.spawn ?? new FakeSpawn();
   const proxy = new RootProxy({
@@ -78,6 +79,7 @@ function makeProxy(overrides: {
     port: overrides.port ?? 80,
     scriptPath: SCRIPT,
     spawn: spawn.fn,
+    escalate: overrides.escalate ?? (() => Promise.resolve(0)),
     probe: () => Promise.resolve(overrides.probeOpen ?? true),
     pollIntervalMs: 1,
     startupTimeoutMs: 20,
@@ -102,6 +104,7 @@ describe("buildRootProxyArgs", () => {
       buildRootProxyArgs(SCRIPT, 80, [{ host: "frontend.kido.local", port: 5173 }], "/opt/homebrew/bin/bun"),
     ).toEqual([
       "sudo",
+      "-n",
       "--",
       "/opt/homebrew/bin/bun",
       SCRIPT,
@@ -163,6 +166,86 @@ describe("RootProxy", () => {
     expect(proxy.status()).toEqual({ phase: "up", lastError: null });
   });
 
+  test("start escalates before spawning the root proxy", async () => {
+    const order: string[] = [];
+    const spawn = new FakeSpawn();
+    const spawnTracking: SpawnFn = (argv) => {
+      order.push("spawn");
+      return spawn.fn(argv);
+    };
+    const proxy = new RootProxy({
+      routes: [{ host: "frontend.kido.local", port: 5173 }],
+      scriptPath: SCRIPT,
+      spawn: spawnTracking,
+      escalate: () => {
+        order.push("escalate");
+        return Promise.resolve(0);
+      },
+      probe: () => Promise.resolve(true),
+      pollIntervalMs: 1,
+      startupTimeoutMs: 20,
+    });
+    await proxy.start();
+    expect(order).toEqual(["escalate", "spawn"]);
+    expect(proxy.status()).toEqual({ phase: "up", lastError: null });
+  });
+
+  test("a failed escalation leaves the proxy down without spawning", async () => {
+    const { proxy, spawn } = makeProxy({ escalate: () => Promise.resolve(1) });
+    await proxy.start();
+    expect(spawn.calls).toEqual([]);
+    expect(proxy.status()).toEqual({
+      phase: "down",
+      lastError: "sudo authentication failed (exit code 1)",
+    });
+  });
+
+  test("an escalation error is recorded without spawning", async () => {
+    const { proxy, spawn } = makeProxy({
+      escalate: () => Promise.reject(new Error("spawn sudo ENOENT")),
+    });
+    await proxy.start();
+    expect(spawn.calls).toEqual([]);
+    expect(proxy.status()).toEqual({ phase: "down", lastError: "spawn sudo ENOENT" });
+  });
+
+  test("stop during escalation prevents the spawn", async () => {
+    let resolveEscalate!: (code: number) => void;
+    const { proxy, spawn } = makeProxy({
+      escalate: () => new Promise<number>((resolve) => (resolveEscalate = resolve)),
+    });
+    const started = proxy.start();
+    await tick();
+    const stopped = proxy.stop();
+    resolveEscalate(0);
+    await Promise.all([started, stopped]);
+    expect(spawn.calls).toEqual([]);
+    expect(proxy.status()).toEqual({ phase: "down", lastError: null });
+  });
+
+  test("a child that stays silent past the deadline records a timeout error", async () => {
+    const proxy = new RootProxy({
+      routes: [],
+      scriptPath: SCRIPT,
+      spawn: () => ({
+        kill: () => {},
+        exited: new Promise<number>(() => {}),
+        closeStdin: () => {},
+        stderrText: () => Promise.resolve(""),
+      }),
+      escalate: () => Promise.resolve(0),
+      probe: () => Promise.resolve(false),
+      pollIntervalMs: 1,
+      startupTimeoutMs: 20,
+      captureTimeoutMs: 20,
+    });
+    await proxy.start();
+    expect(proxy.status()).toEqual({
+      phase: "down",
+      lastError: "timed out waiting for the root proxy to listen on 127.0.0.1:80",
+    });
+  });
+
   test("stop closes the child's stdin and returns the proxy to down", async () => {
     const { proxy, spawn } = makeProxy({});
     await proxy.start();
@@ -193,6 +276,7 @@ describe("RootProxy", () => {
       routes: [{ host: "a.local", port: 1 }],
       scriptPath: SCRIPT,
       spawn,
+      escalate: () => Promise.resolve(0),
       probe: () => Promise.resolve(true),
       pollIntervalMs: 1,
       startupTimeoutMs: 20,
@@ -242,6 +326,7 @@ describe("RootProxy", () => {
         child.stderr = "sudo: a terminal is required to read the password\n";
         return child;
       },
+      escalate: () => Promise.resolve(0),
       probe: () => Promise.resolve(false),
       pollIntervalMs: 1,
       startupTimeoutMs: 20,

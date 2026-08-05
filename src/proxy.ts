@@ -5,7 +5,9 @@ import {
   bunSpawnWithStdin,
   runStartupWatch,
   sleep,
+  sudoValidateEscalation,
   tcpProbe,
+  type EscalateFn,
   type ProbeFn,
   type SpawnFn,
   type SpawnedChild,
@@ -28,14 +30,17 @@ export interface RootProxyOptions {
   port?: number;
   scriptPath?: string;
   spawn?: SpawnFn;
+  escalate?: EscalateFn;
   probe?: ProbeFn;
   pollIntervalMs?: number;
   startupTimeoutMs?: number;
+  captureTimeoutMs?: number;
 }
 
 const DEFAULT_PORT = 80;
 const DEFAULT_POLL_INTERVAL_MS = 100;
 const DEFAULT_STARTUP_TIMEOUT_MS = 10_000;
+const DEFAULT_CAPTURE_TIMEOUT_MS = 2_000;
 
 export function proxyRoutesJson(routes: ProxyRoute[]): string {
   const map: Record<string, number> = {};
@@ -51,6 +56,7 @@ export function buildRootProxyArgs(
 ): string[] {
   return [
     "sudo",
+    "-n",
     "--",
     bunPath,
     scriptPath,
@@ -80,9 +86,11 @@ export class RootProxy {
   private readonly port: number;
   private readonly scriptPath: string;
   private readonly spawn: SpawnFn;
+  private readonly escalate: EscalateFn;
   private readonly probe: ProbeFn;
   private readonly pollIntervalMs: number;
   private readonly startupTimeoutMs: number;
+  private readonly captureTimeoutMs: number;
   lastError: string | null = null;
 
   constructor(options: RootProxyOptions) {
@@ -90,9 +98,11 @@ export class RootProxy {
     this.port = options.port ?? DEFAULT_PORT;
     this.scriptPath = options.scriptPath ?? join(import.meta.dir, "root-proxy.ts");
     this.spawn = options.spawn ?? bunSpawnWithStdin;
+    this.escalate = options.escalate ?? sudoValidateEscalation(this.port);
     this.probe = options.probe ?? tcpProbe;
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     this.startupTimeoutMs = options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS;
+    this.captureTimeoutMs = options.captureTimeoutMs ?? DEFAULT_CAPTURE_TIMEOUT_MS;
   }
 
   status(): ProxyStatus {
@@ -111,6 +121,21 @@ export class RootProxy {
     this.generation += 1;
     const generation = this.generation;
     this.emit();
+
+    let escalateCode: number;
+    try {
+      escalateCode = await this.escalate();
+    } catch (cause) {
+      this.lastError = messageOf(cause);
+      this.markDown();
+      return;
+    }
+    if (this.generation !== generation) return;
+    if (escalateCode !== 0) {
+      this.lastError = `sudo authentication failed (exit code ${escalateCode})`;
+      this.markDown();
+      return;
+    }
 
     let child: SpawnedChild;
     try {
@@ -131,16 +156,20 @@ export class RootProxy {
 
   private async captureFailure(child: SpawnedChild): Promise<void> {
     const [exitCode, stderr] = await Promise.all([
-      Promise.race([child.exited.catch(() => -1), sleep(2000).then(() => -1)]),
+      Promise.race([child.exited.catch(() => -1), sleep(this.captureTimeoutMs).then(() => -1)]),
       child.stderrText
-        ? Promise.race([child.stderrText(), sleep(2000).then(() => "")])
+        ? Promise.race([child.stderrText(), sleep(this.captureTimeoutMs).then(() => "")])
         : Promise.resolve(""),
     ]);
     const parts: string[] = [];
     if (exitCode !== -1) parts.push(`child exited with code ${exitCode}`);
     const text = stderr.trim();
     if (text !== "") parts.push(text);
-    if (parts.length > 0) this.lastError = parts.join(": ");
+    if (parts.length > 0) {
+      this.lastError = parts.join(": ");
+    } else {
+      this.lastError = `timed out waiting for the root proxy to listen on 127.0.0.1:${this.port}`;
+    }
   }
 
   async stop(): Promise<void> {
