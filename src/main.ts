@@ -5,6 +5,7 @@ import { loadGlobalConfig } from "./config/global.ts";
 import { discoverApps } from "./discover.ts";
 import { ConfigError, UsageError } from "./errors.ts";
 import { expandPath } from "./paths.ts";
+import { ForwardEngine } from "./forward.ts";
 import { runTui } from "./tui/app.ts";
 
 async function main(): Promise<void> {
@@ -21,7 +22,11 @@ async function main(): Promise<void> {
   const defaultRemote = args.remote ?? global.defaultRemote;
 
   const apps = discoverApps(workspaceRoot, { aliasSuffix: global.aliasSuffix });
-  await runTui({ workspaceRoot, apps, defaultRemote });
+  const engine = new ForwardEngine({ apps, defaultRemote });
+  process.on("exit", () => {
+    void engine.stopAll();
+  });
+  await runTui({ workspaceRoot, apps, defaultRemote, engine });
 }
 
 main().catch((error: unknown) => {

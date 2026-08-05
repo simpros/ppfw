@@ -1,4 +1,5 @@
 import type { AppConfig, PortEntry } from "./config/app.ts";
+import { forwardKey, type ForwardStatus } from "./forward.ts";
 
 export interface HeaderView {
   left: string;
@@ -37,17 +38,26 @@ export interface BuildViewOptions {
   apps: AppConfig[];
   collapsed: ReadonlySet<string>;
   defaultRemote?: string | null;
+  statuses?: ReadonlyMap<string, ForwardStatus>;
 }
 
-const FOOTER_KEYS = "↑/↓ select app · space fold/unfold · q quit";
+const FOOTER_KEYS = "↑/↓ select · space fold/unfold · s start · x stop · q quit";
 
 export function buildView(options: BuildViewOptions): View {
   const portCount = options.apps.reduce((n, app) => n + app.ports.length, 0);
+  const upCount = options.apps.reduce(
+    (n, app) =>
+      n +
+      app.ports.filter(
+        (port) => port.forward && phaseFor(app, port, options) === "up",
+      ).length,
+    0,
+  );
 
   return {
     header: {
       left: `ppfw  workspace ${options.workspaceRoot}  proxy ○ down`,
-      counts: `${options.apps.length} apps · ${portCount} ports · 0 up`,
+      counts: `${options.apps.length} apps · ${portCount} ports · ${upCount} up`,
     },
     groups: options.apps.map((app) => buildGroup(app, options)),
     footer: { keys: FOOTER_KEYS },
@@ -62,18 +72,40 @@ function buildGroup(app: AppConfig, options: BuildViewOptions): AppGroupView {
     dir: app.dir,
     collapsedGlyph: isCollapsed ? "▶" : "▼",
     remoteLabel: remote ? `remote ${remote}` : "remote (default)",
-    rows: isCollapsed ? [] : app.ports.map(buildRow),
+    rows: isCollapsed ? [] : app.ports.map((port) => buildRow(app, port, options)),
   };
 }
 
-function buildRow(port: PortEntry): PortRowView {
-  const standalone = !port.forward;
+function buildRow(
+  app: AppConfig,
+  port: PortEntry,
+  options: BuildViewOptions,
+): PortRowView {
+  if (!port.forward) {
+    return {
+      state: "◆ alias",
+      name: port.name,
+      port: `:${port.port}`,
+      alias: port.alias ? `→  ${port.alias}` : "(no alias)",
+      note: "standalone · no forward",
+      standalone: true,
+    };
+  }
+  const phase = phaseFor(app, port, options);
   return {
-    state: standalone ? "◆ alias" : "○ stop",
+    state: phase === "up" ? "● up" : "○ stop",
     name: port.name,
     port: `:${port.port}`,
     alias: port.alias ? `→  ${port.alias}` : "(no alias)",
-    note: standalone ? "standalone · no forward" : "",
-    standalone,
+    note: phase === "starting" ? "starting…" : "",
+    standalone: false,
   };
+}
+
+function phaseFor(
+  app: AppConfig,
+  port: PortEntry,
+  options: BuildViewOptions,
+): ForwardStatus["phase"] | undefined {
+  return options.statuses?.get(forwardKey(app.dir, port.name))?.phase;
 }

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AppConfig } from "../src/config/app.ts";
+import { forwardKey, type ForwardStatus } from "../src/forward.ts";
 import { buildView } from "../src/view.ts";
 
 const kido: AppConfig = {
@@ -91,5 +92,52 @@ describe("buildView", () => {
 
   test("footer lists the keybindings", () => {
     expect(view().footer.keys).toContain("q quit");
+  });
+
+  test("up rows render with a filled glyph and count in the header", () => {
+    const statuses = new Map<string, ForwardStatus>([
+      [forwardKey("/ws/kido", "frontend"), { phase: "up" }],
+      [forwardKey("/ws/backend", "worker"), { phase: "up" }],
+    ]);
+    const v = buildView({
+      workspaceRoot: "/ws",
+      apps: [kido, backend],
+      collapsed: new Set(),
+      statuses,
+    });
+    expect(v.header.counts).toBe("2 apps · 5 ports · 2 up");
+    expect(v.groups[0]!.rows[0]!.state).toBe("● up");
+    expect(v.groups[0]!.rows[0]!.note).toBe("");
+    expect(v.groups[1]!.rows[0]!.state).toBe("● up");
+  });
+
+  test("starting rows render stopped with a starting note and do not count as up", () => {
+    const statuses = new Map<string, ForwardStatus>([
+      [forwardKey("/ws/kido", "frontend"), { phase: "starting" }],
+    ]);
+    const v = buildView({
+      workspaceRoot: "/ws",
+      apps: [kido, backend],
+      collapsed: new Set(),
+      statuses,
+    });
+    expect(v.header.counts).toBe("2 apps · 5 ports · 0 up");
+    expect(v.groups[0]!.rows[0]!.state).toBe("○ stop");
+    expect(v.groups[0]!.rows[0]!.note).toBe("starting…");
+    expect(v.groups[0]!.rows[1]!.state).toBe("○ stop");
+  });
+
+  test("standalone aliases ignore forward status", () => {
+    const statuses = new Map<string, ForwardStatus>([
+      [forwardKey("/ws/kido", "localui"), { phase: "up" }],
+    ]);
+    const v = buildView({
+      workspaceRoot: "/ws",
+      apps: [kido, backend],
+      collapsed: new Set(),
+      statuses,
+    });
+    expect(v.groups[0]!.rows[3]!.state).toBe("◆ alias");
+    expect(v.header.counts).toBe("2 apps · 5 ports · 0 up");
   });
 });
