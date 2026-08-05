@@ -23,6 +23,7 @@ const kido: AppConfig = {
 class FakeChild implements SpawnedChild {
   killSignal: string | null = null;
   stdinClosed = false;
+  stderr = "";
   private resolveExit!: (code: number) => void;
   readonly exited = new Promise<number>((resolve) => {
     this.resolveExit = resolve;
@@ -35,6 +36,8 @@ class FakeChild implements SpawnedChild {
   closeStdin(): void {
     this.stdinClosed = true;
   }
+
+  stderrText = async (): Promise<string> => this.stderr;
 
   exit(code: number): void {
     this.resolveExit(code);
@@ -221,12 +224,31 @@ describe("RootProxy", () => {
     expect(proxy.status()).toEqual({ phase: "down" });
   });
 
-  test("a spawn failure leaves the proxy down", async () => {
+  test("a spawn failure leaves the proxy down and records the error", async () => {
     const spawn = new FakeSpawn();
     spawn.error = new Error("spawn sudo ENOENT");
     const { proxy } = makeProxy({ spawn });
     await proxy.start();
     expect(proxy.status()).toEqual({ phase: "down" });
+    expect(proxy.lastError).toBe("spawn sudo ENOENT");
+  });
+
+  test("a failed startup surfaces the child's stderr", async () => {
+    const proxy = new RootProxy({
+      routes: [],
+      scriptPath: SCRIPT,
+      spawn: () => {
+        const child = new FakeChild();
+        child.stderr = "sudo: a terminal is required to read the password\n";
+        return child;
+      },
+      probe: () => Promise.resolve(false),
+      pollIntervalMs: 1,
+      startupTimeoutMs: 20,
+    });
+    await proxy.start();
+    expect(proxy.status()).toEqual({ phase: "down" });
+    expect(proxy.lastError).toBe("sudo: a terminal is required to read the password");
   });
 
   test("start closes the child's stdin when the port never opens before the deadline", async () => {

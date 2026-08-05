@@ -4,6 +4,7 @@ export interface SpawnedChild {
   kill(signal?: NodeJS.Signals): void;
   exited: Promise<number>;
   closeStdin?: () => void;
+  stderrText?: () => Promise<string>;
 }
 
 export type SpawnFn = (argv: string[]) => SpawnedChild;
@@ -25,12 +26,13 @@ export const bunSpawnWithStdin: SpawnFn = (argv) => {
   const proc = Bun.spawn(argv, {
     stdin: "pipe",
     stdout: "ignore",
-    stderr: "ignore",
+    stderr: "pipe",
   });
   return {
     kill: (signal) => proc.kill(signal),
     exited: proc.exited,
     closeStdin: () => proc.stdin?.end(),
+    stderrText: async () => await new Response(proc.stderr).text(),
   };
 };
 

@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type { AppConfig } from "./config/app.ts";
+import { messageOf } from "./errors.ts";
 import {
   bunSpawnWithStdin,
   runStartupWatch,
@@ -80,6 +81,7 @@ export class RootProxy {
   private readonly probe: ProbeFn;
   private readonly pollIntervalMs: number;
   private readonly startupTimeoutMs: number;
+  lastError: string | null = null;
 
   constructor(options: RootProxyOptions) {
     this.routes = options.routes;
@@ -111,13 +113,21 @@ export class RootProxy {
     let child: SpawnedChild;
     try {
       child = this.spawn(buildRootProxyArgs(this.scriptPath, this.port, this.routes));
-    } catch {
+    } catch (cause) {
+      this.lastError = messageOf(cause);
       this.markDown();
       return;
     }
     this.child = child;
 
-    await this.runStartup(child, generation);
+    let startupFailed = false;
+    await this.runStartup(child, generation, () => {
+      startupFailed = true;
+    });
+    if (startupFailed && child.stderrText) {
+      const stderr = (await child.stderrText()).trim();
+      if (stderr !== "") this.lastError = stderr;
+    }
   }
 
   async stop(): Promise<void> {
@@ -133,6 +143,7 @@ export class RootProxy {
   private async runStartup(
     child: SpawnedChild,
     generation: number,
+    onFailed: () => void,
   ): Promise<void> {
     await runStartupWatch({
       child,
@@ -147,7 +158,10 @@ export class RootProxy {
         this.emit();
         this.watchExit(child, generation);
       },
-      onFailed: () => this.markDown(),
+      onFailed: () => {
+        onFailed();
+        this.markDown();
+      },
       shutdown: (c) => this.shutdown(c),
     });
   }

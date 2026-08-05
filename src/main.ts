@@ -31,7 +31,10 @@ async function main(): Promise<void> {
   });
   await proxy.start();
   if (proxy.status().phase !== "up") {
-    console.error("ppfw: root proxy failed to start — bare-hostname aliases will not resolve");
+    console.error(
+      `ppfw: root proxy failed to start — bare-hostname aliases will not resolve` +
+        (proxy.lastError ? `\n${proxy.lastError}` : ""),
+    );
   }
   await runTui({ workspaceRoot, apps, defaultRemote, engine, proxy });
   await engine.stopAll();
