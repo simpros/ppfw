@@ -138,6 +138,30 @@ describe("buildRootProxyArgs", () => {
       "80",
     ]);
   });
+
+  test("passes a custom hosts path to the root-proxy child", () => {
+    expect(
+      buildRootProxyArgs(
+        SCRIPT,
+        80,
+        [{ host: "frontend.kido.local", port: 5173 }],
+        "/opt/homebrew/bin/bun",
+        "/tmp/hosts",
+      ),
+    ).toEqual([
+      "sudo",
+      "-n",
+      "--",
+      "/opt/homebrew/bin/bun",
+      SCRIPT,
+      "--routes",
+      '{"frontend.kido.local":5173}',
+      "--port",
+      "80",
+      "--hosts-path",
+      "/tmp/hosts",
+    ]);
+  });
 });
 
 describe("routesForApps", () => {

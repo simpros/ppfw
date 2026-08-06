@@ -40,6 +40,51 @@ function proxy(routes: Record<string, number>): ReturnType<typeof startProxyServ
 }
 
 describe("startProxyServer", () => {
+  test("relays WebSocket connections for dev-server HMR", async () => {
+    let resolveBackendMessage!: (message: string) => void;
+    const backendMessage = new Promise<string>((resolve) => {
+      resolveBackendMessage = resolve;
+    });
+    const backend = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: (request, server) =>
+        server.upgrade(request)
+          ? undefined
+          : new Response("expected websocket", { status: 400 }),
+      websocket: {
+        open: (ws) => {
+          ws.send("hmr-connected");
+        },
+        message: (ws, message) => {
+          resolveBackendMessage(String(message));
+          ws.send(message);
+        },
+      },
+    });
+    backends.push({ port: backend.port!, close: () => void backend.stop(true) });
+    const p = proxy({ "frontend.kido.local": backend.port! });
+    const client = new WebSocket(`ws://127.0.0.1:${p.port}/hmr`, {
+      headers: { Host: "frontend.kido.local" },
+    });
+    const messages: string[] = [];
+    client.addEventListener("message", (event) => messages.push(String(event.data)));
+
+    await new Promise<void>((resolve, reject) => {
+      client.addEventListener("open", () => resolve());
+      client.addEventListener("error", () => reject(new Error("WebSocket did not open")));
+    });
+    await new Promise<void>((resolve) => {
+      const check = () => (messages.includes("hmr-connected") ? resolve() : setTimeout(check, 1));
+      check();
+    });
+    client.send("hmr-update");
+    await backendMessage;
+    expect(messages).toContain("hmr-connected");
+    expect(await backendMessage).toBe("hmr-update");
+    client.close();
+  });
+
   test("routes by Host header to the matching localhost port", async () => {
     const backend = listen(
       (request) =>
