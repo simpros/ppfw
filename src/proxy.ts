@@ -23,6 +23,7 @@ export interface ProxyStatus {
 export interface RootProxyOptions {
   routes: ProxyRoute[];
   port?: number;
+  hostsPath?: string;
   scriptPath?: string;
   spawn?: SpawnFn;
   escalate?: EscalateFn;
@@ -50,8 +51,9 @@ export function buildRootProxyArgs(
   port: number,
   routes: ProxyRoute[],
   bunPath: string = process.execPath,
+  hostsPath?: string,
 ): string[] {
-  return [
+  const args = [
     "sudo",
     "-n",
     "--",
@@ -62,6 +64,8 @@ export function buildRootProxyArgs(
     "--port",
     String(port),
   ];
+  if (hostsPath !== undefined) args.push("--hosts-path", hostsPath);
+  return args;
 }
 
 export function routesForApps(apps: AppConfig[]): ProxyRoute[] {
@@ -77,17 +81,25 @@ export function routesForApps(apps: AppConfig[]): ProxyRoute[] {
 export class RootProxy {
   private readonly port: number;
   private readonly scriptPath: string;
+  private readonly hostsPath: string | undefined;
   private readonly supervisor: ChildSupervisor;
   private routesJson: string;
 
   constructor(options: RootProxyOptions) {
     this.port = options.port ?? DEFAULT_PORT;
     this.scriptPath = options.scriptPath ?? join(import.meta.dir, "root-proxy.ts");
+    this.hostsPath = options.hostsPath;
     this.routesJson = proxyRoutesJson(options.routes);
     const escalate = options.escalate ?? sudoValidateEscalation(this.port);
     this.supervisor = new ChildSupervisor({
       label: "root proxy",
-      argv: buildRootProxyArgs(this.scriptPath, this.port, options.routes),
+      argv: buildRootProxyArgs(
+        this.scriptPath,
+        this.port,
+        options.routes,
+        process.execPath,
+        options.hostsPath,
+      ),
       port: this.port,
       prepare: async () => {
         const code = await escalate();
@@ -145,7 +157,9 @@ export class RootProxy {
     const phase = this.supervisor.status().phase;
     const active = phase === "up" || phase === "starting";
     if (active) await this.supervisor.stop();
-    this.supervisor.setArgv(buildRootProxyArgs(this.scriptPath, this.port, routes));
+    this.supervisor.setArgv(
+      buildRootProxyArgs(this.scriptPath, this.port, routes, process.execPath, this.hostsPath),
+    );
     if (active) await this.supervisor.start();
   }
 }

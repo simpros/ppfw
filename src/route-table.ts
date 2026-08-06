@@ -53,6 +53,10 @@ export class RouteTable {
     return this.routes;
   }
 
+  hosts(): string[] {
+    return [...this.routes.keys()];
+  }
+
   toJson(): string {
     return JSON.stringify(Object.fromEntries(this.routes));
   }

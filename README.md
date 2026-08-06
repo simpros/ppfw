@@ -11,7 +11,8 @@ stops, and restarts forwards per row, per app, or all at once, and rescans the
 workspace without quitting. It supervises running forwards (reconnect with
 backoff on transient drops, inline error reasons on permanent failures) and
 runs the root reverse proxy on `127.0.0.1:80` (via one launch-time `sudo`
-escalation). `/etc/hosts` alias resolution lands in a later slice.
+escalation). It reconciles the aliases in a marker-delimited `/etc/hosts` block
+for the duration of the run.
 
 ## Requirements
 

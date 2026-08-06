@@ -82,7 +82,7 @@ function parsePortEntry(
       name: portName,
       port: validatePort(where, portName, entry),
       forward: true,
-      alias: deriveAlias(portName, appName, aliasSuffix),
+      alias: deriveAlias(where, portName, appName, aliasSuffix),
     };
   }
 
@@ -112,11 +112,11 @@ function parsePortEntry(
 
   let alias: string | null;
   if (!("alias" in map) || map.alias === true) {
-    alias = deriveAlias(portName, appName, aliasSuffix);
+    alias = deriveAlias(where, portName, appName, aliasSuffix);
   } else if (map.alias === false) {
     alias = null;
   } else if (typeof map.alias === "string" && map.alias.trim() !== "") {
-    alias = map.alias;
+    alias = validateAlias(where, portName, map.alias);
   } else {
     throw fail(
       where,
@@ -169,8 +169,30 @@ function optionalBoolean(
   return value;
 }
 
-function deriveAlias(portName: string, appName: string, suffix: string): string {
-  return `${portName}.${appName}.${suffix}`;
+function deriveAlias(
+  where: string,
+  portName: string,
+  appName: string,
+  suffix: string,
+): string {
+  return validateAlias(where, portName, `${portName}.${appName}.${suffix}`);
+}
+
+function validateAlias(where: string, portName: string, alias: string): string {
+  const labels = alias.split(".");
+  const valid =
+    alias === alias.trim() &&
+    alias.length <= 253 &&
+    labels.every(
+      (label) =>
+        label.length > 0 &&
+        label.length <= 63 &&
+        /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/.test(label),
+    );
+  if (!valid) {
+    throw fail(where, `port \`${portName}\`: alias must be a valid hostname`);
+  }
+  return alias;
 }
 
 function fail(where: string, message: string): ConfigError {
