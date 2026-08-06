@@ -8,14 +8,14 @@ import {
   type ThemeMode,
 } from "@opentui/core";
 import type { AppConfig } from "../config/app.ts";
-import type { ForwardEngine } from "../forward.ts";
+import type { Runtime } from "../runtime.ts";
 import { buildView, type PortRowView } from "../view.ts";
 
 export interface TuiOptions {
   workspaceRoot: string;
   apps: AppConfig[];
   defaultRemote: string | null;
-  engine: ForwardEngine;
+  runtime: Runtime;
 }
 
 export interface Palette {
@@ -120,7 +120,8 @@ export async function runTui(options: TuiOptions): Promise<void> {
       apps: options.apps,
       collapsed,
       defaultRemote: options.defaultRemote,
-      statuses: options.engine.statuses(),
+      statuses: options.runtime.statuses(),
+      proxyStatus: options.runtime.proxyStatus(),
     });
 
     setText(
@@ -207,27 +208,38 @@ export async function runTui(options: TuiOptions): Promise<void> {
     render();
   };
 
-  renderer.keyInput.on("keypress", (key: KeyEvent) => {
-    if (key.name === "q") {
-      void options.engine.stopAll().finally(() => renderer.destroy());
-      return;
-    }
-    if (key.name === "up" || key.name === "k") move(-1);
-    if (key.name === "down" || key.name === "j") move(1);
-    if (key.name === "space") toggleSelected();
-    const item = items[selected];
-    if (item?.kind === "row") {
-      if (key.name === "s") void options.engine.start(item.dir, item.portName);
-      if (key.name === "x") void options.engine.stop(item.dir, item.portName);
-    }
-  });
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const unsubscribe = options.runtime.onChange(render);
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      unsubscribe();
+      resolve();
+    };
+    renderer.keyInput.on("keypress", (key: KeyEvent) => {
+      if (key.name === "q") {
+        finish();
+        renderer.destroy();
+        return;
+      }
+      if (key.name === "up" || key.name === "k") move(-1);
+      if (key.name === "down" || key.name === "j") move(1);
+      if (key.name === "space") toggleSelected();
+      const item = items[selected];
+      if (item?.kind === "row") {
+        if (key.name === "s") void options.runtime.startForward(item.dir, item.portName);
+        if (key.name === "x") void options.runtime.stopForward(item.dir, item.portName);
+      }
+    });
 
-  options.engine.onChange(render);
+    renderer.once("destroy", finish);
 
-  renderer.on("theme_mode", (mode: ThemeMode) => {
-    themeMode = mode;
+    renderer.on("theme_mode", (mode: ThemeMode) => {
+      themeMode = mode;
+      render();
+    });
+
     render();
   });
-
-  render();
 }

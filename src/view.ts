@@ -1,5 +1,6 @@
 import type { AppConfig, PortEntry } from "./config/app.ts";
 import { forwardKey, type ForwardStatus } from "./forward.ts";
+import type { ProxyStatus } from "./proxy.ts";
 
 export interface HeaderView {
   left: string;
@@ -39,6 +40,7 @@ export interface BuildViewOptions {
   collapsed: ReadonlySet<string>;
   defaultRemote?: string | null;
   statuses?: ReadonlyMap<string, ForwardStatus>;
+  proxyStatus?: ProxyStatus;
 }
 
 const FOOTER_KEYS = "↑/↓ select · space fold/unfold · s start · x stop · q quit";
@@ -56,12 +58,21 @@ export function buildView(options: BuildViewOptions): View {
 
   return {
     header: {
-      left: `ppfw  workspace ${options.workspaceRoot}  proxy ○ down`,
+      left: `ppfw  workspace ${options.workspaceRoot}  root proxy ${proxyLabel(
+        options.proxyStatus,
+      )}`,
       counts: `${options.apps.length} apps · ${portCount} ports · ${upCount} up`,
     },
     groups: options.apps.map((app) => buildGroup(app, options)),
     footer: { keys: FOOTER_KEYS },
   };
+}
+
+function proxyLabel(status: ProxyStatus | undefined): string {
+  if (status?.phase === "up") return "● up";
+  const error = status?.lastError;
+  if (error === undefined || error === null || error === "") return "○ down";
+  return `○ down (${error.length > 40 ? `${error.slice(0, 37)}…` : error})`;
 }
 
 function buildGroup(app: AppConfig, options: BuildViewOptions): AppGroupView {

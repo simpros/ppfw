@@ -5,9 +5,10 @@ driven by per-application config files, and maps friendly hostnames onto those
 ports. See [CONTEXT.md](CONTEXT.md) for the domain glossary and `docs/adr/`
 for architecture decisions.
 
-This is the first vertical slice: it discovers apps in a workspace and renders
-them read-only in a full-screen TUI. Starting/stopping forwards, the root
-proxy, and alias resolution land in later slices.
+This is a vertical slice in progress: it discovers apps in a workspace root, renders
+them in a full-screen TUI, starts/stops forwards, and runs the root reverse
+proxy on `127.0.0.1:80` (via one launch-time `sudo` escalation). `/etc/hosts`
+alias resolution lands in a later slice.
 
 ## Requirements
 
