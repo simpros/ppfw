@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { forwardKey, ForwardEngine, type SpawnedChild } from "../src/forward.ts";
 import { RootProxy, routesForApps } from "../src/proxy.ts";
-import { createRuntime } from "../src/runtime.ts";
+import { createRuntime, type RuntimeEngine, type RuntimeProxy } from "../src/runtime.ts";
 import { Workspace } from "../src/workspace.ts";
 
 let ws: string;
@@ -232,5 +232,50 @@ describe("createRuntime", () => {
     expect(spawn.children.some((child) => child.killSignal === null && !child.stdinClosed)).toBe(
       false,
     );
+  });
+});
+
+function fakeEngine(events: string[]): RuntimeEngine {
+  return {
+    start: async () => {},
+    stop: async () => {},
+    restart: async () => {},
+    startApp: async () => {},
+    stopApp: async () => {},
+    startAll: async () => {},
+    stopAll: async () => {
+      events.push("forwards");
+    },
+    setApps: async () => {},
+    statuses: () => new Map(),
+    onChange: () => () => {},
+  };
+}
+
+function fakeProxy(events: string[]): RuntimeProxy {
+  return {
+    start: async () => {},
+    stop: async () => {
+      events.push("proxy");
+    },
+    setRoutes: async () => {},
+    status: () => ({ phase: "down", lastError: null }),
+    onChange: () => () => {},
+  };
+}
+
+describe("createRuntime teardown", () => {
+  test("stops forwards before the root proxy", async () => {
+    const events: string[] = [];
+    const runtime = createRuntime({
+      engine: fakeEngine(events),
+      proxy: fakeProxy(events),
+      workspace: new Workspace({ workspaceRoot: ws, aliasSuffix: "local", defaultRemote: null }),
+      apps: [],
+    });
+
+    await runtime.stop();
+
+    expect(events).toEqual(["forwards", "proxy"]);
   });
 });

@@ -1,7 +1,7 @@
 import type { AppConfig } from "./config/app.ts";
 import { messageOf } from "./errors.ts";
-import type { ForwardEngine, ForwardStatus } from "./forward.ts";
-import { routesForApps, type ProxyStatus, type RootProxy } from "./proxy.ts";
+import type { ForwardStatus } from "./forward.ts";
+import { routesForApps, type ProxyRoute, type ProxyStatus } from "./proxy.ts";
 import type { Workspace } from "./workspace.ts";
 
 export interface Runtime {
@@ -23,9 +23,30 @@ export interface Runtime {
   onChange(listener: () => void): () => void;
 }
 
+export interface RuntimeEngine {
+  start(appDir: string, portName: string): Promise<void>;
+  stop(appDir: string, portName: string): Promise<void>;
+  restart(appDir: string, portName: string): Promise<void>;
+  startApp(appDir: string): Promise<void>;
+  stopApp(appDir: string): Promise<void>;
+  startAll(): Promise<void>;
+  stopAll(): Promise<void>;
+  setApps(apps: AppConfig[]): Promise<void>;
+  statuses(): ReadonlyMap<string, ForwardStatus>;
+  onChange(listener: () => void): () => void;
+}
+
+export interface RuntimeProxy {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  setRoutes(routes: ProxyRoute[]): Promise<void>;
+  status(): ProxyStatus;
+  onChange(listener: () => void): () => void;
+}
+
 export interface RuntimeOptions {
-  engine: ForwardEngine;
-  proxy: RootProxy;
+  engine: RuntimeEngine;
+  proxy: RuntimeProxy;
   workspace: Workspace;
   apps: AppConfig[];
 }

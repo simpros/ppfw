@@ -79,6 +79,17 @@ describe("parseAppConfig", () => {
     });
   });
 
+  test("rejects an alias string containing a port or whitespace", () => {
+    expect(() => parseAppConfig(
+      "ports:\n  api:\n    port: 3232\n    alias: api.kido.local:8080\n",
+      opts,
+    )).toThrow(/alias/);
+    expect(() => parseAppConfig(
+      "ports:\n  api:\n    port: 3232\n    alias: 'api kido.local'\n",
+      opts,
+    )).toThrow(/alias/);
+  });
+
   test("forward false yields standalone alias", () => {
     const app = parseAppConfig(
       "ports:\n  localui:\n    port: 9000\n    forward: false\n",
