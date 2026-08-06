@@ -8,7 +8,7 @@ const args = process.argv.slice(2);
 
 const routesText = flagValue(args, "--routes");
 if (routesText === null) {
-  console.error("usage: root-proxy --routes <json> [--port <port>]");
+  console.error("usage: root-proxy --routes <json> [--port <port>] [--hosts-path <path>]");
   process.exit(1);
 }
 
@@ -46,8 +46,8 @@ function shutdown(reason: string): void {
   if (shuttingDown) return;
   shuttingDown = true;
   console.error(`root-proxy: ${reason}, exiting`);
-  server.stop();
   const error = removeHostsError(hostsPath);
+  server.stop();
   if (error !== null) {
     console.error(`root-proxy: cannot remove ${hostsPath}: ${error}`);
     process.exit(1);
