@@ -421,6 +421,95 @@ describe("ForwardEngine", () => {
     expect(engine.status(frontend)?.backoffMs).toBe(8);
   });
 
+  test("restart tears down the running forward and brings it back up", async () => {
+    const { engine, spawn } = makeEngine({});
+    await engine.start("/ws/kido", "frontend");
+    expect(engine.status(frontend)?.phase).toBe("up");
+
+    const restarted = engine.restart("/ws/kido", "frontend");
+    expect(spawn.children[0]!.killSignal).toBe("SIGTERM");
+    spawn.children[0]!.exit(0);
+    await restarted;
+    expect(spawn.calls.length).toBe(2);
+    expect(engine.status(frontend)?.phase).toBe("up");
+  });
+
+  test("restart from stopped starts the forward", async () => {
+    const { engine, spawn } = makeEngine({});
+    await engine.restart("/ws/kido", "frontend");
+    expect(spawn.calls.length).toBe(1);
+    expect(engine.status(frontend)?.phase).toBe("up");
+  });
+
+  test("restart from error retries the forward", async () => {
+    const { engine, spawn } = makeEngine({ portInUse: true });
+    await engine.start("/ws/kido", "frontend");
+    expect(engine.status(frontend)?.phase).toBe("error");
+    spawn.portInUse = false;
+    await engine.restart("/ws/kido", "frontend");
+    expect(engine.status(frontend)?.phase).toBe("up");
+  });
+
+  test("restart while reconnecting cancels the pending retry", async () => {
+    const { engine, spawn } = makeEngine({ baseBackoffMs: 30 });
+    await engine.start("/ws/kido", "frontend");
+    spawn.children[0]!.exit(1);
+    await waitFor(() => engine.status(frontend)?.phase === "reconnecting");
+
+    await engine.restart("/ws/kido", "frontend");
+    expect(engine.status(frontend)?.phase).toBe("up");
+    expect(spawn.calls.length).toBe(2);
+    await tick(50);
+    expect(spawn.calls.length).toBe(2);
+  });
+
+  test("restart on a forward without a remote is a no-op", async () => {
+    const { engine, spawn } = makeEngine({ defaultRemote: null });
+    await engine.restart("/ws/backend", "worker");
+    expect(spawn.calls).toEqual([]);
+  });
+
+  test("startApp starts every forward in the app", async () => {
+    const { engine, spawn } = makeEngine({});
+    await engine.startApp("/ws/kido");
+    expect(engine.status(frontend)?.phase).toBe("up");
+    expect(engine.status(forwardKey("/ws/kido", "db"))?.phase).toBe("up");
+    expect(spawn.calls.map((call) => call[call.length - 1])).toEqual([
+      "devbox-a",
+      "devbox-a",
+    ]);
+    expect(engine.status(forwardKey("/ws/kido", "localui"))).toBeNull();
+  });
+
+  test("startApp on an unknown app is a no-op", async () => {
+    const { engine, spawn } = makeEngine({});
+    await engine.startApp("/ws/nope");
+    expect(spawn.calls).toEqual([]);
+  });
+
+  test("stopApp stops every running forward in the app only", async () => {
+    const { engine, spawn } = makeEngine({});
+    await engine.start("/ws/kido", "frontend");
+    await engine.start("/ws/kido", "db");
+    await engine.start("/ws/backend", "worker");
+
+    const stopped = engine.stopApp("/ws/kido");
+    for (const child of spawn.children.slice(0, 2)) child.exit(0);
+    await stopped;
+    expect(engine.status(frontend)?.phase).toBe("stopped");
+    expect(engine.status(forwardKey("/ws/kido", "db"))?.phase).toBe("stopped");
+    expect(engine.status(forwardKey("/ws/backend", "worker"))?.phase).toBe("up");
+  });
+
+  test("startAll starts every forward across all apps", async () => {
+    const { engine, spawn } = makeEngine({});
+    await engine.startAll();
+    expect(spawn.calls.length).toBe(3);
+    expect(engine.status(frontend)?.phase).toBe("up");
+    expect(engine.status(forwardKey("/ws/kido", "db"))?.phase).toBe("up");
+    expect(engine.status(forwardKey("/ws/backend", "worker"))?.phase).toBe("up");
+  });
+
   test("stopAll kills every running child", async () => {
     const { engine, spawn } = makeEngine({});
     await engine.start("/ws/kido", "frontend");
@@ -439,5 +528,97 @@ describe("ForwardEngine", () => {
     engine.onChange(() => seen.push(engine.status(frontend)?.phase ?? "?"));
     await engine.start("/ws/kido", "frontend");
     expect(seen).toEqual(["starting", "up"]);
+  });
+});
+
+const worker = forwardKey("/ws/backend", "worker");
+
+describe("ForwardEngine.setApps", () => {
+  test("adds new apps as stopped forwards", async () => {
+    const { engine, spawn } = makeEngine({ apps: [kido] });
+    await engine.setApps([kido, backend]);
+    expect(engine.status(worker)?.phase).toBe("stopped");
+    await engine.start("/ws/backend", "worker");
+    expect(spawn.calls).toEqual([["ssh", ...buildSshArgs(8080, "devbox")]]);
+  });
+
+  test("tears down the forwards of a removed app", async () => {
+    const { engine, spawn } = makeEngine({});
+    await engine.start("/ws/kido", "frontend");
+    expect(engine.status(frontend)?.phase).toBe("up");
+
+    const reconciled = engine.setApps([backend]);
+    spawn.children[0]!.exit(0);
+    await reconciled;
+    expect(spawn.children[0]!.killSignal).toBe("SIGTERM");
+    expect(engine.status(frontend)).toBeNull();
+    expect(engine.status(worker)?.phase).toBe("stopped");
+  });
+
+  test("keeps unchanged forwards running", async () => {
+    const { engine, spawn } = makeEngine({});
+    await engine.start("/ws/kido", "frontend");
+    await engine.setApps([kido, backend]);
+    expect(engine.status(frontend)?.phase).toBe("up");
+    expect(spawn.calls.length).toBe(1);
+  });
+
+  test("replaces a forward whose port changed, stopped", async () => {
+    const { engine, spawn } = makeEngine({});
+    await engine.start("/ws/kido", "frontend");
+
+    const moved: AppConfig = {
+      ...kido,
+      ports: kido.ports.map((port) =>
+        port.name === "frontend" ? { ...port, port: 5174 } : port,
+      ),
+    };
+    const reconciled = engine.setApps([moved, backend]);
+    spawn.children[0]!.exit(0);
+    await reconciled;
+    expect(spawn.children[0]!.killSignal).toBe("SIGTERM");
+    expect(engine.status(frontend)?.phase).toBe("stopped");
+
+    await engine.start("/ws/kido", "frontend");
+    expect(spawn.calls[1]).toEqual(["ssh", ...buildSshArgs(5174, "devbox-a")]);
+  });
+
+  test("replaces a forward whose remote changed, stopped", async () => {
+    const { engine, spawn } = makeEngine({});
+    await engine.start("/ws/kido", "frontend");
+
+    const moved = { ...kido, remote: "devbox-b" };
+    const reconciled = engine.setApps([moved, backend]);
+    spawn.children[0]!.exit(0);
+    await reconciled;
+    expect(engine.status(frontend)?.phase).toBe("stopped");
+
+    await engine.start("/ws/kido", "frontend");
+    expect(spawn.calls[1]).toEqual(["ssh", ...buildSshArgs(5173, "devbox-b")]);
+  });
+
+  test("ignores alias-only changes", async () => {
+    const { engine, spawn } = makeEngine({});
+    await engine.start("/ws/kido", "frontend");
+
+    const renamed: AppConfig = {
+      ...kido,
+      ports: kido.ports.map((port) =>
+        port.name === "frontend" ? { ...port, alias: "web.kido.local" } : port,
+      ),
+    };
+    await engine.setApps([renamed, backend]);
+    expect(engine.status(frontend)?.phase).toBe("up");
+    expect(spawn.calls.length).toBe(1);
+  });
+
+  test("emits a change event once reconciliation settles", async () => {
+    const { engine } = makeEngine({ apps: [kido] });
+    let changes = 0;
+    engine.onChange(() => {
+      changes += 1;
+    });
+    await engine.setApps([kido, backend]);
+    expect(changes).toBe(1);
   });
 });

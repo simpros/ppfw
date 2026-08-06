@@ -164,7 +164,7 @@ export class ChildSupervisor {
   private attempts = 0;
   private readonly listeners = new Set<() => void>();
   private readonly label: string;
-  private readonly argv: string[];
+  private argv: string[];
   private readonly port: number;
   private readonly prepare: () => Promise<void>;
   private readonly spawn: SpawnFn;
@@ -246,6 +246,11 @@ export class ChildSupervisor {
       this.shutdownChild(child);
       await child.exited.catch(() => 0);
     }
+  }
+
+  /** Replace the command used by the next spawn; a running child is unaffected. */
+  setArgv(argv: string[]): void {
+    this.argv = argv;
   }
 
   /**

@@ -75,18 +75,19 @@ export function routesForApps(apps: AppConfig[]): ProxyRoute[] {
 }
 
 export class RootProxy {
-  private readonly routes: ProxyRoute[];
   private readonly port: number;
+  private readonly scriptPath: string;
   private readonly supervisor: ChildSupervisor;
+  private routesJson: string;
 
   constructor(options: RootProxyOptions) {
-    this.routes = options.routes;
     this.port = options.port ?? DEFAULT_PORT;
-    const scriptPath = options.scriptPath ?? join(import.meta.dir, "root-proxy.ts");
+    this.scriptPath = options.scriptPath ?? join(import.meta.dir, "root-proxy.ts");
+    this.routesJson = proxyRoutesJson(options.routes);
     const escalate = options.escalate ?? sudoValidateEscalation(this.port);
     this.supervisor = new ChildSupervisor({
       label: "root proxy",
-      argv: buildRootProxyArgs(scriptPath, this.port, this.routes),
+      argv: buildRootProxyArgs(this.scriptPath, this.port, options.routes),
       port: this.port,
       prepare: async () => {
         const code = await escalate();
@@ -130,5 +131,21 @@ export class RootProxy {
 
   async stop(): Promise<void> {
     await this.supervisor.stop();
+  }
+
+  /**
+   * Serve a new route table. A running proxy is restarted with the new
+   * routes; a proxy that is down or halted picks them up on its next start,
+   * and one mid-backoff retries with them on its next attempt.
+   */
+  async setRoutes(routes: ProxyRoute[]): Promise<void> {
+    const json = proxyRoutesJson(routes);
+    if (json === this.routesJson) return;
+    this.routesJson = json;
+    const phase = this.supervisor.status().phase;
+    const active = phase === "up" || phase === "starting";
+    if (active) await this.supervisor.stop();
+    this.supervisor.setArgv(buildRootProxyArgs(this.scriptPath, this.port, routes));
+    if (active) await this.supervisor.start();
   }
 }

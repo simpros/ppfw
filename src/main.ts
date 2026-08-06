@@ -2,14 +2,13 @@
 import { homedir } from "node:os";
 import { parseArgs, USAGE } from "./cli.ts";
 import { loadGlobalConfig } from "./config/global.ts";
-import { discoverApps } from "./discover.ts";
 import { ConfigError, UsageError } from "./errors.ts";
 import { expandPath } from "./paths.ts";
 import { ForwardEngine } from "./forward.ts";
 import { RootProxy, routesForApps } from "./proxy.ts";
-import { validateRemotes } from "./remotes.ts";
 import { createRuntime } from "./runtime.ts";
 import { runTui } from "./tui/app.ts";
+import { Workspace } from "./workspace.ts";
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
@@ -24,11 +23,15 @@ async function main(): Promise<void> {
     : global.workspaceRoot;
   const defaultRemote = args.remote ?? global.defaultRemote;
 
-  const apps = discoverApps(workspaceRoot, { aliasSuffix: global.aliasSuffix });
-  validateRemotes({ apps, defaultRemote });
+  const workspace = new Workspace({
+    workspaceRoot,
+    aliasSuffix: global.aliasSuffix,
+    defaultRemote,
+  });
+  const apps = workspace.scan();
   const engine = new ForwardEngine({ apps, defaultRemote });
   const proxy = new RootProxy({ routes: routesForApps(apps) });
-  const runtime = createRuntime({ engine, proxy });
+  const runtime = createRuntime({ engine, proxy, workspace, apps });
   try {
     await runtime.start();
     if (runtime.proxyStatus().phase !== "up") {
@@ -39,7 +42,7 @@ async function main(): Promise<void> {
             : ""),
       );
     }
-    await runTui({ workspaceRoot, apps, defaultRemote, runtime });
+    await runTui({ workspaceRoot, defaultRemote, runtime });
   } finally {
     await runtime.stop();
   }
