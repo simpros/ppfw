@@ -409,3 +409,67 @@ describe("RootProxy", () => {
     expect(seen).toEqual(["starting", "up"]);
   });
 });
+
+const NEW_ROUTES: ProxyRoute[] = [
+  { host: "api.kido.local", port: 3232 },
+];
+
+function routesArg(call: string[]): string {
+  return call[call.indexOf("--routes") + 1]!;
+}
+
+describe("RootProxy.setRoutes", () => {
+  test("restarts a running proxy with the new routes", async () => {
+    const { proxy, spawn } = makeProxy({});
+    await proxy.start();
+    expect(proxy.status().phase).toBe("up");
+
+    const stopped = spawn.children[0]!;
+    await proxy.setRoutes(NEW_ROUTES);
+    expect(stopped.stdinClosed).toBe(true);
+    expect(spawn.calls.length).toBe(2);
+    expect(routesArg(spawn.calls[1]!)).toBe('{"api.kido.local":3232}');
+    expect(proxy.status()).toEqual({ phase: "up", lastError: null });
+  });
+
+  test("is a no-op when the routes are unchanged", async () => {
+    const { proxy, spawn } = makeProxy({});
+    await proxy.start();
+    await proxy.setRoutes([
+      { host: "frontend.kido.local", port: 5173 },
+      { host: "localui.kido.local", port: 9000 },
+    ]);
+    expect(spawn.calls.length).toBe(1);
+    expect(proxy.status().phase).toBe("up");
+  });
+
+  test("while down, applies the new routes on the next start", async () => {
+    const { proxy, spawn } = makeProxy({});
+    await proxy.setRoutes(NEW_ROUTES);
+    expect(spawn.calls).toEqual([]);
+    await proxy.start();
+    expect(spawn.calls.length).toBe(1);
+    expect(routesArg(spawn.calls[0]!)).toBe('{"api.kido.local":3232}');
+  });
+
+  test("while halted in error, does not restart on its own", async () => {
+    const { proxy, spawn } = makeProxy({ portInUse: true });
+    await proxy.start();
+    expect(proxy.status().phase).toBe("down");
+    expect(proxy.status().lastError).toBe("port in use");
+    await proxy.setRoutes(NEW_ROUTES);
+    expect(spawn.calls).toEqual([]);
+    expect(proxy.status().phase).toBe("down");
+  });
+
+  test("while reconnecting, the next attempt uses the new routes", async () => {
+    const { proxy, spawn } = makeProxy({ baseBackoffMs: 40 });
+    await proxy.start();
+    spawn.children[0]!.exit(1);
+    await waitFor(() => proxy.status().lastError !== null);
+    await proxy.setRoutes(NEW_ROUTES);
+    await waitFor(() => spawn.calls.length === 2);
+    expect(routesArg(spawn.calls[1]!)).toBe('{"api.kido.local":3232}');
+    await waitFor(() => proxy.status().phase === "up");
+  });
+});

@@ -126,6 +126,42 @@ describe("buildView", () => {
     expect(view().footer.keys).toContain("q quit");
   });
 
+  test("footer lists the full action set", () => {
+    const keys = view().footer.keys;
+    expect(keys).toContain("s/x/r start·stop·restart (row)");
+    expect(keys).toContain("S/X start·stop app");
+    expect(keys).toContain("a start-all");
+    expect(keys).toContain("Z stop-all");
+    expect(keys).toContain(". rescan");
+  });
+
+  test("header carries no rescan error by default", () => {
+    expect(view().header.rescanError).toBe("");
+  });
+
+  test("a failed rescan is announced in the header", () => {
+    const v = buildView({
+      workspaceRoot: "/ws",
+      apps: [kido, backend],
+      collapsed: new Set(),
+      rescanError: "/ws/broken/.ppfw.config: `ports` is required",
+    });
+    expect(v.header.rescanError).toBe(
+      "rescan failed · /ws/broken/.ppfw.config: `ports` is required",
+    );
+  });
+
+  test("a long rescan error is truncated in the header", () => {
+    const v = buildView({
+      workspaceRoot: "/ws",
+      apps: [kido, backend],
+      collapsed: new Set(),
+      rescanError: "x".repeat(200),
+    });
+    expect(v.header.rescanError.length).toBeLessThanOrEqual(60);
+    expect(v.header.rescanError).toEndWith("…");
+  });
+
   test("up rows render with a filled glyph and count in the header", () => {
     const statuses = new Map<string, ForwardStatus>([
       [forwardKey("/ws/kido", "frontend"), { phase: "up" }],

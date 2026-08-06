@@ -7,13 +7,11 @@ import {
   TextRenderable,
   type ThemeMode,
 } from "@opentui/core";
-import type { AppConfig } from "../config/app.ts";
 import type { Runtime } from "../runtime.ts";
 import { buildView, type PortRowView } from "../view.ts";
 
 export interface TuiOptions {
   workspaceRoot: string;
-  apps: AppConfig[];
   defaultRemote: string | null;
   runtime: Runtime;
 }
@@ -23,6 +21,7 @@ export interface Palette {
   dim: string;
   accent: string;
   selected: string;
+  danger: string;
 }
 
 const DARK_PALETTE: Palette = {
@@ -30,6 +29,7 @@ const DARK_PALETTE: Palette = {
   dim: "#8a8a8a",
   accent: "#5fd7ff",
   selected: "#ffd75f",
+  danger: "#ff5f5f",
 };
 
 const LIGHT_PALETTE: Palette = {
@@ -37,6 +37,7 @@ const LIGHT_PALETTE: Palette = {
   dim: "#5f5f5f",
   accent: "#005f87",
   selected: "#af5f00",
+  danger: "#af0000",
 };
 
 export function paletteFor(themeMode: ThemeMode | null): Palette {
@@ -65,7 +66,16 @@ type Item =
 export async function runTui(options: TuiOptions): Promise<void> {
   const renderer = await createCliRenderer({ exitOnCtrlC: true });
   await renderer.waitForThemeMode(THEME_DETECT_TIMEOUT_MS);
-  let themeMode: ThemeMode | null = renderer.themeMode ?? themeFromEnv(process.env);
+  const themeMode = renderer.themeMode ?? themeFromEnv(process.env);
+  await runTuiWith(renderer, options, themeMode);
+}
+
+export async function runTuiWith(
+  renderer: Awaited<ReturnType<typeof createCliRenderer>>,
+  options: TuiOptions,
+  initialThemeMode: ThemeMode | null,
+): Promise<void> {
+  let themeMode: ThemeMode | null = initialThemeMode;
   const collapsed = new Set<string>();
   let selected = 0;
   let content: BoxRenderable | null = null;
@@ -117,18 +127,29 @@ export async function runTui(options: TuiOptions): Promise<void> {
     const colors = paletteFor(themeMode);
     const view = buildView({
       workspaceRoot: options.workspaceRoot,
-      apps: options.apps,
+      apps: options.runtime.apps(),
       collapsed,
       defaultRemote: options.defaultRemote,
       statuses: options.runtime.statuses(),
       proxyStatus: options.runtime.proxyStatus(),
+      rescanError: options.runtime.rescanError(),
     });
 
-    setText(
-      header,
+    const headerTexts = [
       new TextRenderable(renderer, { content: view.header.left, fg: colors.fg }),
+    ];
+    if (view.header.rescanError !== "") {
+      headerTexts.push(
+        new TextRenderable(renderer, {
+          content: view.header.rescanError,
+          fg: colors.danger,
+        }),
+      );
+    }
+    headerTexts.push(
       new TextRenderable(renderer, { content: view.header.counts, fg: colors.dim }),
     );
+    setText(header, ...headerTexts);
     setText(
       footer,
       new TextRenderable(renderer, { content: view.footer.keys, fg: colors.dim }),
@@ -226,10 +247,22 @@ export async function runTui(options: TuiOptions): Promise<void> {
       if (key.name === "up" || key.name === "k") move(-1);
       if (key.name === "down" || key.name === "j") move(1);
       if (key.name === "space") toggleSelected();
+      if (key.name === "a" && !key.shift) void options.runtime.startAll();
+      if (key.name === "z" && key.shift) void options.runtime.stopAll();
+      if (key.name === ".") void options.runtime.rescan();
       const item = items[selected];
-      if (item?.kind === "row") {
-        if (key.name === "s") void options.runtime.startForward(item.dir, item.portName);
-        if (key.name === "x") void options.runtime.stopForward(item.dir, item.portName);
+      if (!item) return;
+      if (key.name === "s" && key.shift) void options.runtime.startApp(item.dir);
+      if (key.name === "x" && key.shift) void options.runtime.stopApp(item.dir);
+      if (item.kind !== "row") return;
+      if (key.name === "s" && !key.shift) {
+        void options.runtime.startForward(item.dir, item.portName);
+      }
+      if (key.name === "x" && !key.shift) {
+        void options.runtime.stopForward(item.dir, item.portName);
+      }
+      if (key.name === "r" && !key.shift) {
+        void options.runtime.restartForward(item.dir, item.portName);
       }
     });
 

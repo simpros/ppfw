@@ -5,6 +5,8 @@ import type { ProxyStatus } from "./proxy.ts";
 export interface HeaderView {
   left: string;
   counts: string;
+  /** Why the last rescan failed; empty when the workspace is healthy. */
+  rescanError: string;
 }
 
 export interface PortRowView {
@@ -41,9 +43,11 @@ export interface BuildViewOptions {
   defaultRemote?: string | null;
   statuses?: ReadonlyMap<string, ForwardStatus>;
   proxyStatus?: ProxyStatus;
+  rescanError?: string | null;
 }
 
-const FOOTER_KEYS = "↑/↓ select · space fold/unfold · s start · x stop · q quit";
+const FOOTER_KEYS =
+  "s/x/r start·stop·restart (row) · S/X start·stop app · a start-all · Z stop-all · . rescan · q quit & tear down";
 
 export function buildView(options: BuildViewOptions): View {
   const portCount = options.apps.reduce((n, app) => n + app.ports.length, 0);
@@ -62,6 +66,7 @@ export function buildView(options: BuildViewOptions): View {
         options.proxyStatus,
       )}`,
       counts: `${options.apps.length} apps · ${portCount} ports · ${upCount} up`,
+      rescanError: truncateRescanError(options.rescanError ?? ""),
     },
     groups: options.apps.map((app) => buildGroup(app, options)),
     footer: { keys: FOOTER_KEYS },
@@ -131,6 +136,15 @@ const MAX_NOTE_LENGTH = 80;
 function truncate(note: string): string {
   if (note.length <= MAX_NOTE_LENGTH) return note;
   return `${note.slice(0, MAX_NOTE_LENGTH - 1)}…`;
+}
+
+const MAX_RESCAN_ERROR_LENGTH = 60;
+
+function truncateRescanError(error: string): string {
+  if (error === "") return "";
+  const notice = `rescan failed · ${error}`;
+  if (notice.length <= MAX_RESCAN_ERROR_LENGTH) return notice;
+  return `${notice.slice(0, MAX_RESCAN_ERROR_LENGTH - 1)}…`;
 }
 
 function reconnectNote(status: ForwardStatus): string {
