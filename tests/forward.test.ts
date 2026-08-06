@@ -192,6 +192,27 @@ describe("ForwardEngine", () => {
     expect(spawn.calls).toEqual([["ssh", ...buildSshArgs(8080, "devbox")]]);
   });
 
+  test("apps targeting different remotes forward in the same session", async () => {
+    const api: AppConfig = {
+      name: "api",
+      dir: "/ws/api",
+      remote: "devbox-b",
+      ports: [{ name: "svc", port: 9001, forward: true, alias: null }],
+    };
+    const { engine, spawn } = makeEngine({ apps: [kido, api, backend] });
+    await engine.start("/ws/kido", "frontend");
+    await engine.start("/ws/api", "svc");
+    await engine.start("/ws/backend", "worker");
+    expect(spawn.calls.map((call) => call[call.length - 1])).toEqual([
+      "devbox-a",
+      "devbox-b",
+      "devbox",
+    ]);
+    expect(engine.status(frontend)?.phase).toBe("up");
+    expect(engine.status(forwardKey("/ws/api", "svc"))?.phase).toBe("up");
+    expect(engine.status(forwardKey("/ws/backend", "worker"))?.phase).toBe("up");
+  });
+
   test("start is a no-op when no remote resolves", async () => {
     const { engine, spawn } = makeEngine({ defaultRemote: null });
     await engine.start("/ws/backend", "worker");
