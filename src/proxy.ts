@@ -30,12 +30,16 @@ export interface RootProxyOptions {
   pollIntervalMs?: number;
   startupTimeoutMs?: number;
   captureTimeoutMs?: number;
+  baseBackoffMs?: number;
+  maxBackoffMs?: number;
 }
 
 const DEFAULT_PORT = 80;
 const DEFAULT_POLL_INTERVAL_MS = 100;
 const DEFAULT_STARTUP_TIMEOUT_MS = 10_000;
 const DEFAULT_CAPTURE_TIMEOUT_MS = 2_000;
+const DEFAULT_BASE_BACKOFF_MS = 1_000;
+const DEFAULT_MAX_BACKOFF_MS = 30_000;
 
 export function proxyRoutesJson(routes: ProxyRoute[]): string {
   return new RouteTable(routes).toJson();
@@ -99,6 +103,8 @@ export class RootProxy {
       pollIntervalMs: options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS,
       startupTimeoutMs: options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS,
       captureTimeoutMs: options.captureTimeoutMs ?? DEFAULT_CAPTURE_TIMEOUT_MS,
+      baseBackoffMs: options.baseBackoffMs ?? DEFAULT_BASE_BACKOFF_MS,
+      maxBackoffMs: options.maxBackoffMs ?? DEFAULT_MAX_BACKOFF_MS,
     });
   }
 
