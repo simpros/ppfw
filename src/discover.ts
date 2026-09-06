@@ -3,7 +3,7 @@ import { parseAppConfig, type AppConfig } from "./config/app.ts";
 import { ConfigError, messageOf } from "./errors.ts";
 import { nodeFileSystem, type FileSystem } from "./filesystem.ts";
 
-export const DEFAULT_MAX_DEPTH = 3;
+const DEFAULT_MAX_DEPTH = 3;
 const APP_CONFIG_FILE = ".ppfw.config";
 const SKIPPED_DIRS = new Set(["node_modules"]);
 

@@ -48,7 +48,7 @@ export function parseSshConfig(text: string): SshConfig {
  * True when the alias matches the Host line's pattern list, mirroring ssh's
  * first-match-wins rule: a matching `!`-prefixed pattern negates the list.
  */
-export function patternsMatch(patterns: readonly string[], alias: string): boolean {
+function patternsMatch(patterns: readonly string[], alias: string): boolean {
   for (const pattern of patterns) {
     const negated = pattern.startsWith("!");
     const body = negated ? pattern.slice(1) : pattern;

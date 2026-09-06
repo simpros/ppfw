@@ -11,6 +11,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
+import { isHostname } from "./hostname.ts";
 
 export const HOSTS_BEGIN_MARKER = "# ppfw begin";
 export const HOSTS_END_MARKER = "# ppfw end";
@@ -120,19 +121,6 @@ function hostsBlockLines(aliases: Iterable<string>): string[] {
   for (const alias of normalized) lines.push(`${LOOPBACK} ${alias}`);
   lines.push(HOSTS_END_MARKER);
   return lines;
-}
-
-function isHostname(host: string): boolean {
-  const labels = host.split(".");
-  return (
-    host.length <= 253 &&
-    labels.every(
-      (label) =>
-        label.length > 0 &&
-        label.length <= 63 &&
-        /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/.test(label),
-    )
-  );
 }
 
 function atomicWrite(path: string, text: string): void {

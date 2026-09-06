@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { messageOf } from "./errors.ts";
+import { flagValue } from "./flags.ts";
 import { reconcileHosts, removeHosts } from "./hosts.ts";
 import { startProxyServer } from "./proxy-server.ts";
 import { RouteTable } from "./route-table.ts";
@@ -67,11 +68,4 @@ function removeHostsError(path: string): string | null {
   } catch (cause) {
     return messageOf(cause);
   }
-}
-
-function flagValue(args: string[], flag: string): string | null {
-  const index = args.indexOf(flag);
-  if (index === -1) return null;
-  const value = args[index + 1];
-  return value === undefined ? null : value;
 }

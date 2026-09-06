@@ -1,7 +1,8 @@
 import type { AppConfig } from "./config/app.ts";
 import { messageOf } from "./errors.ts";
 import type { ForwardStatus } from "./forward.ts";
-import { routesForApps, type ProxyRoute, type ProxyStatus } from "./proxy.ts";
+import { routesForApps, type ProxyStatus } from "./proxy.ts";
+import type { Route } from "./route-table.ts";
 import type { Workspace } from "./workspace.ts";
 
 export interface Runtime {
@@ -39,7 +40,7 @@ export interface RuntimeEngine {
 export interface RuntimeProxy {
   start(): Promise<void>;
   stop(): Promise<void>;
-  setRoutes(routes: ProxyRoute[]): Promise<void>;
+  setRoutes(routes: Route[]): Promise<void>;
   status(): ProxyStatus;
   onChange(listener: () => void): () => void;
 }

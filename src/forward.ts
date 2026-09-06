@@ -1,6 +1,10 @@
 import type { AppConfig } from "./config/app.ts";
 import {
   ChildSupervisor,
+  DEFAULT_BASE_BACKOFF_MS,
+  DEFAULT_MAX_BACKOFF_MS,
+  DEFAULT_POLL_INTERVAL_MS,
+  DEFAULT_STARTUP_TIMEOUT_MS,
   bunSpawn,
   tcpProbe,
   type ChildPhase,
@@ -48,11 +52,6 @@ export function buildSshArgs(port: number, remote: string): string[] {
   ];
 }
 
-const DEFAULT_POLL_INTERVAL_MS = 100;
-const DEFAULT_STARTUP_TIMEOUT_MS = 10_000;
-const DEFAULT_BACKOFF_MS = 1_000;
-const DEFAULT_MAX_BACKOFF_MS = 30_000;
-
 interface ForwardEntry {
   supervisor: ChildSupervisor | null;
   port: number;
@@ -76,7 +75,7 @@ export class ForwardEngine {
     this.probe = options.probe ?? tcpProbe;
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     this.startupTimeoutMs = options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS;
-    this.baseBackoffMs = options.baseBackoffMs ?? DEFAULT_BACKOFF_MS;
+    this.baseBackoffMs = options.baseBackoffMs ?? DEFAULT_BASE_BACKOFF_MS;
     this.maxBackoffMs = options.maxBackoffMs ?? DEFAULT_MAX_BACKOFF_MS;
     this.defaultRemote = options.defaultRemote;
     this.apps = options.apps;
