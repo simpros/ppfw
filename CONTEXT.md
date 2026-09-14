@@ -1,6 +1,6 @@
 # ppfw
 
-ppfw manages SSH port forwards from a local macbook to remote dev boxes, driven by per-application config files, and maps friendly hostnames onto those ports.
+ppfw manages SSH port forwards from the local machine to remote dev boxes, driven by per-application config files, and maps friendly hostnames onto those ports.
 
 ## Language
 
@@ -22,6 +22,10 @@ _Avoid_: service, endpoint
 An `~/.ssh/config` host alias identifying a dev box. ppfw stores no host, user, port, or key for it.
 _Avoid_: host, server, box, environment
 
+**Local machine**:
+The native macOS or native glibc Linux environment running ppfw. WSL2 is not currently supported.
+_Avoid_: laptop, workstation, macbook
+
 **Default remote**:
 The remote used when an app does not override it.
 _Avoid_: primary remote
@@ -30,10 +34,24 @@ _Avoid_: primary remote
 The hostname suffix used to derive alias names (`<port-name>.<app-name>.<suffix>`).
 _Avoid_: domain, TLD
 
+### Installation & distribution
+
+**Install script**:
+The supported operation that installs ppfw or upgrades an existing installation on the local machine.
+_Avoid_: installer wizard, setup script
+
+**Stable release**:
+The tagged ppfw release used by default when installing or upgrading.
+_Avoid_: latest build, main branch artifact
+
+**End-user binary**:
+The standalone ppfw executable distributed to users for a supported local machine.
+_Avoid_: compiled artifact, packaged app
+
 ### Forwarding & aliasing
 
 **Forward**:
-An SSH local-forward that puts a tunnel behind a localhost port so the laptop reaches a remote service. Also the verb for creating one.
+An SSH local-forward that puts a tunnel behind a localhost port so the local machine reaches a remote service. Also the verb for creating one.
 _Avoid_: tunnel (as the feature name), port-forward (ambiguous direction)
 
 **Alias**:
