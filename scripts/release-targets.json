@@ -1,0 +1,31 @@
+{
+  "$comment": "Single source of truth for the ppfw release artifact contract (see docs/release-contract.md). Asset names use GOOS-style os identifiers (darwin/linux).",
+  "checksumFile": "SHA256SUMS.txt",
+  "installScript": "install.sh",
+  "targets": [
+    {
+      "os": "darwin",
+      "arch": "arm64",
+      "asset": "ppfw-darwin-arm64",
+      "runner": "macos-15"
+    },
+    {
+      "os": "darwin",
+      "arch": "x64",
+      "asset": "ppfw-darwin-x64",
+      "runner": "macos-15-intel"
+    },
+    {
+      "os": "linux",
+      "arch": "x64",
+      "asset": "ppfw-linux-x64",
+      "runner": "ubuntu-24.04"
+    },
+    {
+      "os": "linux",
+      "arch": "arm64",
+      "asset": "ppfw-linux-arm64",
+      "runner": "ubuntu-24.04-arm"
+    }
+  ]
+}
