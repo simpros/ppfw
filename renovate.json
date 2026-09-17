@@ -2,16 +2,5 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
-  ],
-  "packageRules": [
-    {
-      "description": "Keep Bun runtime and @types/bun in one PR",
-      "groupName": "bun",
-      "groupSlug": "bun",
-      "matchPackageNames": [
-        "bun",
-        "@types/bun"
-      ]
-    }
   ]
 }
