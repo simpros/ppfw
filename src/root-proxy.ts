@@ -1,21 +1,22 @@
 #!/usr/bin/env bun
 import { messageOf } from "./errors.ts";
+import { argvOption } from "./flags.ts";
 import { reconcileHosts, removeHosts } from "./hosts.ts";
 import { startProxyServer } from "./proxy-server.ts";
 import { RouteTable } from "./route-table.ts";
 
 const args = process.argv.slice(2);
 
-const routesText = flagValue(args, "--routes");
+const routesText = argvOption(args, "--routes");
 if (routesText === null) {
   console.error("usage: root-proxy --routes <json> [--port <port>] [--hosts-path <path>]");
   process.exit(1);
 }
 
 const routes = RouteTable.fromJson(routesText);
-const hostsPath = flagValue(args, "--hosts-path") ?? "/etc/hosts";
+const hostsPath = argvOption(args, "--hosts-path") ?? "/etc/hosts";
 
-const portText = flagValue(args, "--port");
+const portText = argvOption(args, "--port");
 const port = portText === null ? 80 : Number(portText);
 
 console.error(`root-proxy: routes=${routesText} port=${port}`);
@@ -67,11 +68,4 @@ function removeHostsError(path: string): string | null {
   } catch (cause) {
     return messageOf(cause);
   }
-}
-
-function flagValue(args: string[], flag: string): string | null {
-  const index = args.indexOf(flag);
-  if (index === -1) return null;
-  const value = args[index + 1];
-  return value === undefined ? null : value;
 }

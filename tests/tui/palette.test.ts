@@ -1,26 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { paletteFor, themeFromEnv } from "../../src/tui/app.ts";
+import { themeFromEnv } from "../../src/tui/app.ts";
+import { DARK_PALETTE, LIGHT_PALETTE, paletteFor } from "../../src/tui/palette.ts";
 
 describe("paletteFor", () => {
   test("light terminals get dark-on-light colors", () => {
-    expect(paletteFor("light")).toEqual({
-      fg: "#1a1a1a",
-      dim: "#5f5f5f",
-      accent: "#005f87",
-      selected: "#af5f00",
-      danger: "#af0000",
-    });
+    expect(paletteFor("light")).toEqual(LIGHT_PALETTE);
   });
 
   test("dark and undetected terminals get light-on-dark colors", () => {
     expect(paletteFor("dark")).toEqual(paletteFor(null));
-    expect(paletteFor("dark")).toEqual({
-      fg: "#e4e4e4",
-      dim: "#8a8a8a",
-      accent: "#5fd7ff",
-      selected: "#ffd75f",
-      danger: "#ff5f5f",
-    });
+    expect(paletteFor("dark")).toEqual(DARK_PALETTE);
   });
 });
 

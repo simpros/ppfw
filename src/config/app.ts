@@ -1,6 +1,7 @@
 import { basename } from "node:path";
 import { parse } from "yaml";
 import { ConfigError, messageOf } from "../errors.ts";
+import { isHostname } from "../hostname.ts";
 
 export interface PortEntry {
   name: string;
@@ -179,17 +180,7 @@ function deriveAlias(
 }
 
 function validateAlias(where: string, portName: string, alias: string): string {
-  const labels = alias.split(".");
-  const valid =
-    alias === alias.trim() &&
-    alias.length <= 253 &&
-    labels.every(
-      (label) =>
-        label.length > 0 &&
-        label.length <= 63 &&
-        /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/.test(label),
-    );
-  if (!valid) {
+  if (!isHostname(alias)) {
     throw fail(where, `port \`${portName}\`: alias must be a valid hostname`);
   }
   return alias;

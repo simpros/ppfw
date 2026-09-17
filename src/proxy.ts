@@ -3,6 +3,11 @@ import type { AppConfig } from "./config/app.ts";
 import { RouteTable, type Route } from "./route-table.ts";
 import {
   ChildSupervisor,
+  DEFAULT_BASE_BACKOFF_MS,
+  DEFAULT_CAPTURE_TIMEOUT_MS,
+  DEFAULT_MAX_BACKOFF_MS,
+  DEFAULT_POLL_INTERVAL_MS,
+  DEFAULT_STARTUP_TIMEOUT_MS,
   bunSpawnWithStdin,
   sudoValidateEscalation,
   tcpProbe,
@@ -10,8 +15,6 @@ import {
   type ProbeFn,
   type SpawnFn,
 } from "./supervisor.ts";
-
-export type ProxyRoute = Route;
 
 export type ProxyPhase = "down" | "starting" | "up";
 
@@ -21,7 +24,7 @@ export interface ProxyStatus {
 }
 
 export interface RootProxyOptions {
-  routes: ProxyRoute[];
+  routes: Route[];
   port?: number;
   hostsPath?: string;
   scriptPath?: string;
@@ -36,20 +39,15 @@ export interface RootProxyOptions {
 }
 
 const DEFAULT_PORT = 80;
-const DEFAULT_POLL_INTERVAL_MS = 100;
-const DEFAULT_STARTUP_TIMEOUT_MS = 10_000;
-const DEFAULT_CAPTURE_TIMEOUT_MS = 2_000;
-const DEFAULT_BASE_BACKOFF_MS = 1_000;
-const DEFAULT_MAX_BACKOFF_MS = 30_000;
 
-export function proxyRoutesJson(routes: ProxyRoute[]): string {
+export function proxyRoutesJson(routes: Route[]): string {
   return new RouteTable(routes).toJson();
 }
 
 export function buildRootProxyArgs(
   scriptPath: string,
   port: number,
-  routes: ProxyRoute[],
+  routes: Route[],
   bunPath: string = process.execPath,
   hostsPath?: string,
 ): string[] {
@@ -68,8 +66,8 @@ export function buildRootProxyArgs(
   return args;
 }
 
-export function routesForApps(apps: AppConfig[]): ProxyRoute[] {
-  const routes: ProxyRoute[] = [];
+export function routesForApps(apps: AppConfig[]): Route[] {
+  const routes: Route[] = [];
   for (const app of apps) {
     for (const port of app.ports) {
       if (port.alias !== null) routes.push({ host: port.alias, port: port.port });
@@ -129,10 +127,6 @@ export class RootProxy {
     };
   }
 
-  get lastError(): string | null {
-    return this.status().lastError;
-  }
-
   onChange(listener: () => void): () => void {
     return this.supervisor.onChange(listener);
   }
@@ -150,7 +144,7 @@ export class RootProxy {
    * routes; a proxy that is down or halted picks them up on its next start,
    * and one mid-backoff retries with them on its next attempt.
    */
-  async setRoutes(routes: ProxyRoute[]): Promise<void> {
+  async setRoutes(routes: Route[]): Promise<void> {
     const json = proxyRoutesJson(routes);
     if (json === this.routesJson) return;
     this.routesJson = json;

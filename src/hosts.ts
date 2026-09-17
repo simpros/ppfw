@@ -11,6 +11,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
+import { isHostname } from "./hostname.ts";
 
 export const HOSTS_BEGIN_MARKER = "# ppfw begin";
 export const HOSTS_END_MARKER = "# ppfw end";
@@ -106,10 +107,9 @@ function managedRanges(lines: string[]): { begin: number; end: number }[] {
 function hostsBlockLines(aliases: Iterable<string>): string[] {
   const seen = new Set<string>();
   const normalized: string[] = [];
-  for (const rawAlias of aliases) {
-    const alias = rawAlias.trim();
-    if (!isHostname(alias) || alias !== rawAlias) {
-      throw new Error(`invalid alias host: ${rawAlias}`);
+  for (const alias of aliases) {
+    if (!isHostname(alias)) {
+      throw new Error(`invalid alias host: ${alias}`);
     }
     if (seen.has(alias)) continue;
     seen.add(alias);
@@ -120,19 +120,6 @@ function hostsBlockLines(aliases: Iterable<string>): string[] {
   for (const alias of normalized) lines.push(`${LOOPBACK} ${alias}`);
   lines.push(HOSTS_END_MARKER);
   return lines;
-}
-
-function isHostname(host: string): boolean {
-  const labels = host.split(".");
-  return (
-    host.length <= 253 &&
-    labels.every(
-      (label) =>
-        label.length > 0 &&
-        label.length <= 63 &&
-        /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/.test(label),
-    )
-  );
 }
 
 function atomicWrite(path: string, text: string): void {

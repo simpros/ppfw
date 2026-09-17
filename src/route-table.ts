@@ -49,10 +49,6 @@ export class RouteTable {
     return host === null ? undefined : this.routes.get(host);
   }
 
-  entries(): ReadonlyMap<string, number> {
-    return this.routes;
-  }
-
   hosts(): string[] {
     return [...this.routes.keys()];
   }
@@ -62,7 +58,7 @@ export class RouteTable {
   }
 }
 
-export function normalizeHost(hostHeader: string | null): string | null {
+function normalizeHost(hostHeader: string | null): string | null {
   if (hostHeader === null) return null;
   const host = hostHeader.trim().toLowerCase();
   if (host === "") return null;

@@ -1,4 +1,5 @@
 import { UsageError } from "./errors.ts";
+import { parseRequiredFlag } from "./flags.ts";
 
 export interface CliOptions {
   workspaceRoot: string | null;
@@ -23,10 +24,10 @@ export function parseArgs(argv: string[]): CliOptions {
     if (arg === "-h" || arg === "--help") {
       options.help = true;
     } else if (arg === "--workspace" || arg.startsWith("--workspace=")) {
-      options.workspaceRoot = flagValue(arg, argv[i + 1]);
+      options.workspaceRoot = parseRequiredFlag(arg, argv[i + 1]);
       if (!arg.includes("=")) i++;
     } else if (arg === "--remote" || arg.startsWith("--remote=")) {
-      options.remote = flagValue(arg, argv[i + 1]);
+      options.remote = parseRequiredFlag(arg, argv[i + 1]);
       if (!arg.includes("=")) i++;
     } else {
       throw new UsageError(`unknown argument: ${arg}\n\n${USAGE}`);
@@ -34,16 +35,4 @@ export function parseArgs(argv: string[]): CliOptions {
   }
 
   return options;
-}
-
-function flagValue(arg: string, next: string | undefined): string {
-  if (arg.includes("=")) {
-    const value = arg.slice(arg.indexOf("=") + 1);
-    if (value === "") throw new UsageError(`${arg.split("=")[0]} needs a value`);
-    return value;
-  }
-  if (next === undefined || next.startsWith("--")) {
-    throw new UsageError(`${arg} needs a value`);
-  }
-  return next;
 }

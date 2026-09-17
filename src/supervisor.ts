@@ -95,11 +95,11 @@ export function sudoValidateEscalation(port: number): EscalateFn {
   };
 }
 
-export function sleep(ms: number): Promise<void> {
+function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export interface Failure {
+interface Failure {
   /** True when retrying cannot help; the child halts in error. */
   permanent: boolean;
   /** Human-readable reason, rendered inline on the row. */
@@ -145,11 +145,11 @@ export function classifyExit(code: number, stderr: string): Failure {
   return { permanent: false, reason: `child exited with code ${code}` };
 }
 
-const DEFAULT_POLL_INTERVAL_MS = 100;
-const DEFAULT_STARTUP_TIMEOUT_MS = 10_000;
-const DEFAULT_CAPTURE_TIMEOUT_MS = 2_000;
-const DEFAULT_BASE_BACKOFF_MS = 1_000;
-const DEFAULT_MAX_BACKOFF_MS = 30_000;
+export const DEFAULT_POLL_INTERVAL_MS = 100;
+export const DEFAULT_STARTUP_TIMEOUT_MS = 10_000;
+export const DEFAULT_CAPTURE_TIMEOUT_MS = 2_000;
+export const DEFAULT_BASE_BACKOFF_MS = 1_000;
+export const DEFAULT_MAX_BACKOFF_MS = 30_000;
 
 type StartOutcome =
   | { status: "abandoned" }

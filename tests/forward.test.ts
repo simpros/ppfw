@@ -4,9 +4,9 @@ import {
   buildSshArgs,
   ForwardEngine,
   forwardKey,
-  type SpawnedChild,
 } from "../src/forward.ts";
 import { classifyExit } from "../src/supervisor.ts";
+import { FakeSpawn, tick, waitFor } from "./helpers/spawn.ts";
 
 const kido: AppConfig = {
   name: "kido",
@@ -26,62 +26,6 @@ const backend: AppConfig = {
   ports: [{ name: "worker", port: 8080, forward: true, alias: "worker.backend.local" }],
 };
 
-class FakeChild implements SpawnedChild {
-  killSignal: string | null = null;
-  private resolveExit!: (code: number) => void;
-  private stderrValue = "";
-  readonly exited = new Promise<number>((resolve) => {
-    this.resolveExit = resolve;
-  });
-
-  kill(signal?: string): void {
-    this.killSignal = signal ?? "SIGTERM";
-  }
-
-  stderrText = async (): Promise<string> => this.stderrValue;
-
-  exit(code: number, stderrText = ""): void {
-    this.stderrValue = stderrText;
-    this.resolveExit(code);
-  }
-}
-
-class FakeSpawn {
-  calls: string[][] = [];
-  children: FakeChild[] = [];
-  error: Error | null = null;
-  probeOpen = true;
-  portInUse = false;
-  private livePorts = new Set<number>();
-
-  fn = (argv: string[]): SpawnedChild => {
-    if (this.error) throw this.error;
-    this.calls.push(argv);
-    const child = new FakeChild();
-    this.children.push(child);
-    const port = Number(argv.find((arg) => arg.includes(":localhost:"))!.split(":")[0]);
-    this.livePorts.add(port);
-    child.exited.then(() => {
-      this.livePorts.delete(port);
-    });
-    return child;
-  };
-
-  /** A port opens while its ssh child is alive, and closes when it exits. */
-  probe = (port: number): Promise<boolean> =>
-    Promise.resolve(this.portInUse || (this.probeOpen && this.livePorts.has(port)));
-}
-
-const tick = (ms = 5) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function waitFor(check: () => boolean, timeoutMs = 500): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!check()) {
-    if (Date.now() > deadline) throw new Error("timed out waiting for condition");
-    await tick();
-  }
-}
-
 function makeEngine(overrides: {
   apps?: AppConfig[];
   defaultRemote?: string | null;
@@ -98,8 +42,8 @@ function makeEngine(overrides: {
     apps: overrides.apps ?? [kido, backend],
     defaultRemote:
       "defaultRemote" in overrides ? (overrides.defaultRemote ?? null) : "devbox",
-    spawn: spawn.fn,
-    probe: spawn.probe,
+    spawn: spawn.forForwards,
+    probe: spawn.forwardProbe,
     pollIntervalMs: 1,
     startupTimeoutMs: 50,
     baseBackoffMs: overrides.baseBackoffMs ?? 8,

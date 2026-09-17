@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { AppConfig } from "../src/config/app.ts";
-import type { SpawnFn, SpawnedChild } from "../src/supervisor.ts";
+import type { SpawnFn } from "../src/supervisor.ts";
 import {
   buildRootProxyArgs,
   proxyRoutesJson,
   RootProxy,
   routesForApps,
-  type ProxyRoute,
 } from "../src/proxy.ts";
+import type { Route } from "../src/route-table.ts";
+import { FakeChild, FakeSpawn, tick, waitFor } from "./helpers/spawn.ts";
 
 const kido: AppConfig = {
   name: "kido",
@@ -20,70 +21,10 @@ const kido: AppConfig = {
   ],
 };
 
-class FakeChild implements SpawnedChild {
-  killSignal: string | null = null;
-  stdinClosed = false;
-  stderr = "";
-  private resolveExit!: (code: number) => void;
-  readonly exited = new Promise<number>((resolve) => {
-    this.resolveExit = resolve;
-  });
-
-  kill(signal?: string): void {
-    this.killSignal = signal ?? "SIGTERM";
-  }
-
-  closeStdin(): void {
-    this.stdinClosed = true;
-    this.exit(0);
-  }
-
-  stderrText = async (): Promise<string> => this.stderr;
-
-  exit(code: number): void {
-    this.resolveExit(code);
-  }
-}
-
-class FakeSpawn {
-  calls: string[][] = [];
-  children: FakeChild[] = [];
-  error: Error | null = null;
-  probeOpen = true;
-  portInUse = false;
-  private live = 0;
-
-  fn = (argv: string[]): SpawnedChild => {
-    if (this.error) throw this.error;
-    this.calls.push(argv);
-    const child = new FakeChild();
-    this.children.push(child);
-    this.live += 1;
-    child.exited.then(() => {
-      this.live -= 1;
-    });
-    return child;
-  };
-
-  /** Port 80 opens while the proxy child is alive, and closes when it exits. */
-  probe = (): Promise<boolean> =>
-    Promise.resolve(this.portInUse || (this.probeOpen && this.live > 0));
-}
-
-const tick = (ms = 5) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function waitFor(check: () => boolean, timeoutMs = 500): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!check()) {
-    if (Date.now() > deadline) throw new Error("timed out waiting for condition");
-    await tick();
-  }
-}
-
 const SCRIPT = "/ppfw/src/root-proxy.ts";
 
 function makeProxy(overrides: {
-  routes?: ProxyRoute[];
+  routes?: Route[];
   port?: number;
   spawn?: FakeSpawn;
   probeOpen?: boolean;
@@ -101,9 +42,9 @@ function makeProxy(overrides: {
     ],
     port: overrides.port ?? 80,
     scriptPath: SCRIPT,
-    spawn: spawn.fn,
+    spawn: spawn.forProxy,
     escalate: overrides.escalate ?? (() => Promise.resolve(0)),
-    probe: spawn.probe,
+    probe: spawn.proxyProbe,
     pollIntervalMs: 1,
     startupTimeoutMs: 20,
     baseBackoffMs: overrides.baseBackoffMs ?? 8,
@@ -219,7 +160,7 @@ describe("RootProxy", () => {
     const spawn = new FakeSpawn();
     const spawnTracking: SpawnFn = (argv) => {
       order.push("spawn");
-      return spawn.fn(argv);
+      return spawn.forProxy(argv);
     };
     const proxy = new RootProxy({
       routes: [{ host: "frontend.kido.local", port: 5173 }],
@@ -229,7 +170,7 @@ describe("RootProxy", () => {
         order.push("escalate");
         return Promise.resolve(0);
       },
-      probe: spawn.probe,
+      probe: spawn.proxyProbe,
       pollIntervalMs: 1,
       startupTimeoutMs: 20,
     });
@@ -434,7 +375,7 @@ describe("RootProxy", () => {
   });
 });
 
-const NEW_ROUTES: ProxyRoute[] = [
+const NEW_ROUTES: Route[] = [
   { host: "api.kido.local", port: 3232 },
 ];
 

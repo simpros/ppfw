@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { forwardKey, ForwardEngine, type SpawnedChild } from "../src/forward.ts";
+import { forwardKey, ForwardEngine } from "../src/forward.ts";
 import { RootProxy, routesForApps } from "../src/proxy.ts";
 import { createRuntime, type RuntimeEngine, type RuntimeProxy } from "../src/runtime.ts";
 import { Workspace } from "../src/workspace.ts";
+import { FakeSpawn, tick } from "./helpers/spawn.ts";
 
 let ws: string;
 
@@ -16,66 +17,6 @@ beforeEach(async () => {
 async function app(dir: string, yaml: string): Promise<void> {
   await mkdir(join(ws, dir), { recursive: true });
   await writeFile(join(ws, dir, ".ppfw.config"), yaml, "utf8");
-}
-
-class FakeChild implements SpawnedChild {
-  killSignal: string | null = null;
-  stdinClosed = false;
-  private resolveExit!: (code: number) => void;
-  readonly exited = new Promise<number>((resolve) => {
-    this.resolveExit = resolve;
-  });
-
-  kill(signal?: string): void {
-    this.killSignal = signal ?? "SIGTERM";
-    this.exit(0);
-  }
-
-  closeStdin(): void {
-    this.stdinClosed = true;
-    this.exit(0);
-  }
-
-  stderrText = async (): Promise<string> => "";
-
-  exit(code: number): void {
-    this.resolveExit(code);
-  }
-}
-
-class FakeSpawn {
-  calls: string[][] = [];
-  children: FakeChild[] = [];
-  private livePorts = new Set<number>();
-  private liveProxy = 0;
-
-  forForwards = (argv: string[]): SpawnedChild => {
-    this.calls.push(argv);
-    const child = new FakeChild();
-    this.children.push(child);
-    const port = Number(argv.find((arg) => arg.includes(":localhost:"))!.split(":")[0]);
-    this.livePorts.add(port);
-    child.exited.then(() => {
-      this.livePorts.delete(port);
-    });
-    return child;
-  };
-
-  forProxy = (argv: string[]): SpawnedChild => {
-    this.calls.push(argv);
-    const child = new FakeChild();
-    this.children.push(child);
-    this.liveProxy += 1;
-    child.exited.then(() => {
-      this.liveProxy -= 1;
-    });
-    return child;
-  };
-
-  forwardProbe = (port: number): Promise<boolean> =>
-    Promise.resolve(this.livePorts.has(port));
-
-  proxyProbe = (): Promise<boolean> => Promise.resolve(this.liveProxy > 0);
 }
 
 const SCRIPT = "/ppfw/src/root-proxy.ts";
@@ -114,6 +55,15 @@ async function makeRuntime() {
   return { runtime, spawn };
 }
 
+/** Kill records the signal only; complete pending stops by exiting killed children. */
+async function settleTeardown(stop: Promise<void>, spawn: FakeSpawn): Promise<void> {
+  await tick();
+  for (const child of spawn.children) {
+    if (child.killSignal !== null) child.exit(0);
+  }
+  await stop;
+}
+
 describe("createRuntime", () => {
   test("exposes the initial apps", async () => {
     const { runtime } = await makeRuntime();
@@ -130,17 +80,17 @@ describe("createRuntime", () => {
     await runtime.startForward(dir, "frontend");
     expect(runtime.statuses().get(forwardKey(dir, "frontend"))?.phase).toBe("up");
 
-    await runtime.restartForward(dir, "frontend");
+    await settleTeardown(runtime.restartForward(dir, "frontend"), spawn);
     expect(spawn.calls.length).toBe(2);
     expect(runtime.statuses().get(forwardKey(dir, "frontend"))?.phase).toBe("up");
 
-    await runtime.stopApp(dir);
+    await settleTeardown(runtime.stopApp(dir), spawn);
     expect(runtime.statuses().get(forwardKey(dir, "frontend"))?.phase).toBe("stopped");
 
     await runtime.startApp(dir);
     expect(runtime.statuses().get(forwardKey(dir, "frontend"))?.phase).toBe("up");
 
-    await runtime.stopAll();
+    await settleTeardown(runtime.stopAll(), spawn);
     expect(runtime.statuses().get(forwardKey(dir, "frontend"))?.phase).toBe("stopped");
 
     await runtime.startAll();
@@ -226,7 +176,7 @@ describe("createRuntime", () => {
     await runtime.startForward(dir, "frontend");
     expect(runtime.proxyStatus().phase).toBe("up");
 
-    await runtime.stop();
+    await settleTeardown(runtime.stop(), spawn);
     expect(runtime.statuses().get(forwardKey(dir, "frontend"))?.phase).toBe("stopped");
     expect(runtime.proxyStatus().phase).toBe("down");
     expect(spawn.children.some((child) => child.killSignal === null && !child.stdinClosed)).toBe(
