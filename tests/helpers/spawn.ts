@@ -9,11 +9,8 @@ export class FakeChild implements SpawnedChild {
     this.resolveExit = resolve;
   });
 
-  constructor(private readonly exitOnKill = false) {}
-
   kill(signal?: string): void {
     this.killSignal = signal ?? "SIGTERM";
-    if (this.exitOnKill) this.exit(0);
   }
 
   closeStdin(): void {
@@ -29,8 +26,6 @@ export class FakeChild implements SpawnedChild {
   }
 }
 
-export type FakeSpawnRole = "forward" | "proxy";
-
 export class FakeSpawn {
   calls: string[][] = [];
   children: FakeChild[] = [];
@@ -39,23 +34,6 @@ export class FakeSpawn {
   portInUse = false;
   private livePorts = new Set<number>();
   private liveProxy = 0;
-  private readonly exitOnKill: boolean;
-  private readonly role: FakeSpawnRole;
-
-  constructor(options: { exitOnKill?: boolean; role?: FakeSpawnRole } = {}) {
-    this.exitOnKill = options.exitOnKill ?? false;
-    this.role = options.role ?? "forward";
-  }
-
-  /** Single-purpose spawn used by forward/proxy unit tests. */
-  get fn() {
-    return this.role === "proxy" ? this.forProxy : this.forForwards;
-  }
-
-  /** Single-purpose probe used by forward/proxy unit tests. */
-  get probe() {
-    return this.role === "proxy" ? this.proxyProbe : this.forwardProbe;
-  }
 
   forForwards = (argv: string[]): SpawnedChild => {
     const child = this.spawn(argv);
@@ -87,7 +65,7 @@ export class FakeSpawn {
   private spawn(argv: string[]): FakeChild {
     if (this.error) throw this.error;
     this.calls.push(argv);
-    const child = new FakeChild(this.exitOnKill);
+    const child = new FakeChild();
     this.children.push(child);
     return child;
   }

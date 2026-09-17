@@ -9,18 +9,12 @@ import {
 } from "@opentui/core";
 import type { Runtime } from "../runtime.ts";
 import { buildView, type PortRowView } from "../view.ts";
-import { DARK_PALETTE, LIGHT_PALETTE, type Palette } from "./palette.ts";
-
-export type { Palette };
+import { paletteFor, type Palette } from "./palette.ts";
 
 export interface TuiOptions {
   workspaceRoot: string;
   defaultRemote: string | null;
   runtime: Runtime;
-}
-
-export function paletteFor(themeMode: ThemeMode | null): Palette {
-  return themeMode === "light" ? LIGHT_PALETTE : DARK_PALETTE;
 }
 
 /**

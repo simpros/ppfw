@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { paletteFor, themeFromEnv } from "../../src/tui/app.ts";
-import { DARK_PALETTE, LIGHT_PALETTE } from "../../src/tui/palette.ts";
+import { themeFromEnv } from "../../src/tui/app.ts";
+import { DARK_PALETTE, LIGHT_PALETTE, paletteFor } from "../../src/tui/palette.ts";
 
 describe("paletteFor", () => {
   test("light terminals get dark-on-light colors", () => {

@@ -107,10 +107,9 @@ function managedRanges(lines: string[]): { begin: number; end: number }[] {
 function hostsBlockLines(aliases: Iterable<string>): string[] {
   const seen = new Set<string>();
   const normalized: string[] = [];
-  for (const rawAlias of aliases) {
-    const alias = rawAlias.trim();
-    if (!isHostname(alias) || alias !== rawAlias) {
-      throw new Error(`invalid alias host: ${rawAlias}`);
+  for (const alias of aliases) {
+    if (!isHostname(alias)) {
+      throw new Error(`invalid alias host: ${alias}`);
     }
     if (seen.has(alias)) continue;
     seen.add(alias);

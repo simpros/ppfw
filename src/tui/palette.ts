@@ -1,3 +1,5 @@
+import type { ThemeMode } from "@opentui/core";
+
 export interface Palette {
   fg: string;
   dim: string;
@@ -21,3 +23,7 @@ export const LIGHT_PALETTE: Palette = {
   selected: "#af5f00",
   danger: "#af0000",
 };
+
+export function paletteFor(themeMode: ThemeMode | null): Palette {
+  return themeMode === "light" ? LIGHT_PALETTE : DARK_PALETTE;
+}

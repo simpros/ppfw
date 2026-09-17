@@ -180,7 +180,7 @@ function deriveAlias(
 }
 
 function validateAlias(where: string, portName: string, alias: string): string {
-  if (alias !== alias.trim() || !isHostname(alias)) {
+  if (!isHostname(alias)) {
     throw fail(where, `port \`${portName}\`: alias must be a valid hostname`);
   }
   return alias;

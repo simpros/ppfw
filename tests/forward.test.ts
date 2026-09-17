@@ -42,8 +42,8 @@ function makeEngine(overrides: {
     apps: overrides.apps ?? [kido, backend],
     defaultRemote:
       "defaultRemote" in overrides ? (overrides.defaultRemote ?? null) : "devbox",
-    spawn: spawn.fn,
-    probe: spawn.probe,
+    spawn: spawn.forForwards,
+    probe: spawn.forwardProbe,
     pollIntervalMs: 1,
     startupTimeoutMs: 50,
     baseBackoffMs: overrides.baseBackoffMs ?? 8,

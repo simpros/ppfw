@@ -1,5 +1,5 @@
 import { UsageError } from "./errors.ts";
-import { requiredFlagValue } from "./flags.ts";
+import { parseRequiredFlag } from "./flags.ts";
 
 export interface CliOptions {
   workspaceRoot: string | null;
@@ -24,10 +24,10 @@ export function parseArgs(argv: string[]): CliOptions {
     if (arg === "-h" || arg === "--help") {
       options.help = true;
     } else if (arg === "--workspace" || arg.startsWith("--workspace=")) {
-      options.workspaceRoot = requiredFlagValue(arg, argv[i + 1]);
+      options.workspaceRoot = parseRequiredFlag(arg, argv[i + 1]);
       if (!arg.includes("=")) i++;
     } else if (arg === "--remote" || arg.startsWith("--remote=")) {
-      options.remote = requiredFlagValue(arg, argv[i + 1]);
+      options.remote = parseRequiredFlag(arg, argv[i + 1]);
       if (!arg.includes("=")) i++;
     } else {
       throw new UsageError(`unknown argument: ${arg}\n\n${USAGE}`);
