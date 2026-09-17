@@ -43,11 +43,17 @@ native packages, so a Linux runner cannot link the macOS binaries):
 | `ppfw-linux-x64` | `ubuntu-24.04` | `bun install` + `bun build --compile --outfile=dist/ppfw-linux-x64 ./src/main.ts` |
 | `ppfw-linux-arm64` | `ubuntu-24.04-arm` | `bun install` + `bun build --compile --outfile=dist/ppfw-linux-arm64 ./src/main.ts` |
 
-Local reproduction for the current platform only:
+Local reproduction for the current platform only (the asset name is the
+contract name for this machine, resolved via `install.sh --print-target`):
 
 ```bash
 bun run release:build
+bun run release:checksums
 ```
+
+The Bun toolchain is pinned exactly in `.bun-version` (mirrored in
+`.github/workflows/release.yml`); a floating compiler does not belong
+on a checksummed release path.
 
 ## Checksums
 
@@ -60,8 +66,9 @@ Every release publishes `SHA256SUMS.txt` alongside the binaries, in
 
 The installer must verify the downloaded binary against this file and
 hard-fail when the checksum is missing or mismatched (enforced in
-#30). The file is generated in CI with `sha256sum` over the four
-binaries.
+#30). The file is generated in CI by diffing `dist/` against the
+`scripts/release-targets.json` asset set and running `sha256sum` over
+exactly that set, so the JSON is the pin — not a parallel copy.
 
 ## Canonical install script
 

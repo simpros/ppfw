@@ -35,7 +35,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # Exact pin, shared with .bun-version: floating compilers do not
+          # belong on a checksummed release path.
+          bun-version: 1.4.0
       - run: bun install --frozen-lockfile
       - run: bun build --compile --outfile=dist/${{ matrix.asset }} ./src/main.ts
       - uses: actions/upload-artifact@v4
@@ -57,7 +59,13 @@ jobs:
       - name: Generate SHA256SUMS.txt
         run: |
           cd dist
-          sha256sum ppfw-darwin-arm64 ppfw-darwin-x64 ppfw-linux-x64 ppfw-linux-arm64 > SHA256SUMS.txt
+          # The contract pin is scripts/release-targets.json: fail unless
+          # dist/ holds exactly that asset set, then checksum it.
+          jq -r '.targets[].asset' ../scripts/release-targets.json | sort > /tmp/expected-assets.txt
+          printf '%s\n' ppfw-* | sort > /tmp/actual-assets.txt
+          diff -u /tmp/expected-assets.txt /tmp/actual-assets.txt
+          # shellcheck disable=SC2046
+          sha256sum $(cat /tmp/expected-assets.txt) > SHA256SUMS.txt
           sha256sum -c SHA256SUMS.txt
       - name: Create GitHub Release
         env:
@@ -73,9 +81,6 @@ jobs:
             --title "$TAG" \
             --generate-notes \
             $PRERELEASE_FLAG \
-            dist/ppfw-darwin-arm64 \
-            dist/ppfw-darwin-x64 \
-            dist/ppfw-linux-x64 \
-            dist/ppfw-linux-arm64 \
+            dist/ppfw-* \
             dist/SHA256SUMS.txt \
             install.sh

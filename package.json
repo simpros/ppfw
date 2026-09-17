@@ -12,7 +12,7 @@
     "start": "bun src/main.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "release:build": "bun build --compile --outfile=dist/ppfw ./src/main.ts",
+    "release:build": "asset=$(sh install.sh --print-target) && bun build --compile --outfile=dist/$asset ./src/main.ts",
     "release:checksums": "sha256sum dist/ppfw-* > dist/SHA256SUMS.txt && sha256sum -c dist/SHA256SUMS.txt"
   },
   "engines": {
