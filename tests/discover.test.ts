@@ -1,20 +1,18 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join, basename } from "node:path";
+import { basename, join } from "node:path";
 import { ConfigError } from "../src/errors.ts";
 import { discoverApps } from "../src/discover.ts";
 import type { FileEntry, FileSystem } from "../src/filesystem.ts";
+import { tempDir, writeAppConfig } from "./helpers/fs.ts";
 
 let ws: string;
 
 async function app(dir: string, yaml: string): Promise<void> {
-  await mkdir(join(ws, dir), { recursive: true });
-  await writeFile(join(ws, dir, ".ppfw.config"), yaml, "utf8");
+  await writeAppConfig(ws, dir, yaml);
 }
 
 beforeEach(async () => {
-  ws = await mkdtemp(join(tmpdir(), "ppfw-ws-"));
+  ws = await tempDir("ppfw-ws-");
 });
 
 const suffix = { aliasSuffix: "local" };

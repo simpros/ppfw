@@ -1,21 +1,19 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ConfigError } from "../src/errors.ts";
 import { Workspace } from "../src/workspace.ts";
+import { tempDir, writeAppConfig, writeTextFile } from "./helpers/fs.ts";
 
 let ws: string;
 let sshConfigPath: string;
 
 beforeEach(async () => {
-  ws = await mkdtemp(join(tmpdir(), "ppfw-ws-"));
-  sshConfigPath = join(await mkdtemp(join(tmpdir(), "ppfw-ssh-")), "config");
+  ws = await tempDir("ppfw-ws-");
+  sshConfigPath = join(await tempDir("ppfw-ssh-"), "config");
 });
 
 async function app(dir: string, yaml: string): Promise<void> {
-  await mkdir(join(ws, dir), { recursive: true });
-  await writeFile(join(ws, dir, ".ppfw.config"), yaml, "utf8");
+  await writeAppConfig(ws, dir, yaml);
 }
 
 function workspace(defaultRemote: string | null = null): Workspace {
@@ -54,13 +52,13 @@ describe("Workspace", () => {
   });
 
   test("scan fails fast on an unresolved remote", async () => {
-    await writeFile(sshConfigPath, "Host other\n", "utf8");
+    await writeTextFile(sshConfigPath, "Host other\n");
     await app("kido", "remote: devbox-a\nports:\n  frontend: 5173\n");
     expect(() => workspace().scan()).toThrow(/devbox-a/);
   });
 
   test("scan passes when every remote resolves", async () => {
-    await writeFile(sshConfigPath, "Host devbox-a\n", "utf8");
+    await writeTextFile(sshConfigPath, "Host devbox-a\n");
     await app("kido", "remote: devbox-a\nports:\n  frontend: 5173\n");
     expect(() => workspace().scan()).not.toThrow();
   });

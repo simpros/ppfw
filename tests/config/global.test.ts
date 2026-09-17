@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ConfigError } from "../../src/errors.ts";
 import {
@@ -9,9 +8,10 @@ import {
   loadGlobalConfig,
 } from "../../src/config/global.ts";
 import type { FileSystem } from "../../src/filesystem.ts";
+import { tempDir } from "../helpers/fs.ts";
 
 async function configDirWith(content: string | null): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "ppfw-config-"));
+  const dir = await tempDir("ppfw-config-");
   if (content !== null) {
     await writeFile(join(dir, "config.yaml"), content, "utf8");
   }

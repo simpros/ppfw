@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   HOSTS_BEGIN_MARKER,
@@ -8,8 +7,8 @@ import {
   reconcileHosts,
   reconcileHostsText,
   removeHosts,
-  removeHostsText,
 } from "../src/hosts.ts";
+import { tempDir } from "./helpers/fs.ts";
 
 describe("hosts block", () => {
   test("writes one loopback entry per alias", () => {
@@ -54,7 +53,7 @@ describe("hosts block", () => {
       "192.168.1.10 devbox",
       "",
     ].join("\n");
-    expect(removeHostsText(existing)).toBe([
+    expect(reconcileHostsText(existing, [])).toBe([
       "127.0.0.1 localhost",
       "",
       "",
@@ -104,7 +103,7 @@ describe("hosts block", () => {
   });
 
   test("writes and removes the managed block through the file API", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "ppfw-hosts-"));
+    const dir = await tempDir("ppfw-hosts-");
     const path = join(dir, "hosts");
     await writeFile(path, "127.0.0.1 localhost\n", "utf8");
 

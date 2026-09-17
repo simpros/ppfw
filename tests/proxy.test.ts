@@ -8,18 +8,10 @@ import {
   routesForApps,
 } from "../src/proxy.ts";
 import type { Route } from "../src/route-table.ts";
+import { kidoApp } from "./helpers/apps.ts";
 import { FakeChild, FakeSpawn, tick, waitFor } from "./helpers/spawn.ts";
 
-const kido: AppConfig = {
-  name: "kido",
-  dir: "/ws/kido",
-  remote: "devbox-a",
-  ports: [
-    { name: "frontend", port: 5173, forward: true, alias: "frontend.kido.local" },
-    { name: "db", port: 5432, forward: true, alias: null },
-    { name: "localui", port: 9000, forward: false, alias: "localui.kido.local" },
-  ],
-};
+const kido: AppConfig = kidoApp();
 
 const SCRIPT = "/ppfw/src/root-proxy.ts";
 

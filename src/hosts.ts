@@ -65,10 +65,6 @@ export function reconcileHostsText(
   return result + (hadTrailingNewline || block.length > 0 ? lineEnding : "");
 }
 
-export function removeHostsText(existing: string): string {
-  return reconcileHostsText(existing, []);
-}
-
 export function reconcileHosts(
   path: string,
   aliases: Iterable<string>,

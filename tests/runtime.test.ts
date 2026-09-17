@@ -1,30 +1,28 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { forwardKey, ForwardEngine } from "../src/forward.ts";
 import { RootProxy, routesForApps } from "../src/proxy.ts";
 import { createRuntime, type RuntimeEngine, type RuntimeProxy } from "../src/runtime.ts";
 import { Workspace } from "../src/workspace.ts";
+import { tempDir, writeAppConfig, writeTextFile } from "./helpers/fs.ts";
 import { FakeSpawn, tick } from "./helpers/spawn.ts";
 
 let ws: string;
 
 beforeEach(async () => {
-  ws = await mkdtemp(join(tmpdir(), "ppfw-ws-"));
+  ws = await tempDir("ppfw-ws-");
 });
 
 async function app(dir: string, yaml: string): Promise<void> {
-  await mkdir(join(ws, dir), { recursive: true });
-  await writeFile(join(ws, dir, ".ppfw.config"), yaml, "utf8");
+  await writeAppConfig(ws, dir, yaml);
 }
 
 const SCRIPT = "/ppfw/src/root-proxy.ts";
 
 async function makeRuntime() {
   const spawn = new FakeSpawn();
-  const sshConfigPath = join(await mkdtemp(join(tmpdir(), "ppfw-ssh-")), "config");
-  await writeFile(sshConfigPath, "Host devbox\n", "utf8");
+  const sshConfigPath = join(await tempDir("ppfw-ssh-"), "config");
+  await writeTextFile(sshConfigPath, "Host devbox\n");
   const workspace = new Workspace({
     workspaceRoot: ws,
     aliasSuffix: "local",
