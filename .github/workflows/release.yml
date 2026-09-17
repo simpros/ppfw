@@ -1,0 +1,81 @@
+name: release
+
+# Produces the release artifact contract defined in docs/release-contract.md:
+# four native end-user binaries, SHA256SUMS.txt, and the canonical
+# install.sh, published as GitHub Release assets.
+#
+# Tags named vMAJOR.MINOR.PATCH publish a stable release; tags with a
+# hyphenated suffix (e.g. v0.2.0-rc.1) publish a prerelease.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build ${{ matrix.asset }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - asset: ppfw-darwin-arm64
+            runner: macos-15
+          - asset: ppfw-darwin-x64
+            runner: macos-15-intel
+          - asset: ppfw-linux-x64
+            runner: ubuntu-24.04
+          - asset: ppfw-linux-arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun build --compile --outfile=dist/${{ matrix.asset }} ./src/main.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+          if-no-files-found: error
+
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Generate SHA256SUMS.txt
+        run: |
+          cd dist
+          sha256sum ppfw-darwin-arm64 ppfw-darwin-x64 ppfw-linux-x64 ppfw-linux-arm64 > SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PRERELEASE_FLAG=""
+          case "$TAG" in
+            *-*) PRERELEASE_FLAG="--prerelease" ;;
+          esac
+          # shellcheck disable=SC2086
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes \
+            $PRERELEASE_FLAG \
+            dist/ppfw-darwin-arm64 \
+            dist/ppfw-darwin-x64 \
+            dist/ppfw-linux-x64 \
+            dist/ppfw-linux-arm64 \
+            dist/SHA256SUMS.txt \
+            install.sh
