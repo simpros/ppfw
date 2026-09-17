@@ -1,41 +1,41 @@
 import type { AppConfig, PortEntry } from "../../src/config/app.ts";
 
-/** Shared named-port fixtures. Factories return fresh copies per call. */
+/** Shared named-port fixtures. Frozen so no suite can poison another. */
 
-export const frontendPort: PortEntry = {
+export const frontendPort: PortEntry = Object.freeze({
   name: "frontend",
   port: 5173,
   forward: true,
   alias: "frontend.kido.local",
-};
+});
 
-export const apiPort: PortEntry = {
+export const apiPort: PortEntry = Object.freeze({
   name: "api",
   port: 3232,
   forward: true,
   alias: "api-v2.kido.local",
-};
+});
 
-export const dbPort: PortEntry = {
+export const dbPort: PortEntry = Object.freeze({
   name: "db",
   port: 5432,
   forward: true,
   alias: null,
-};
+});
 
-export const localuiPort: PortEntry = {
+export const localuiPort: PortEntry = Object.freeze({
   name: "localui",
   port: 9000,
   forward: false,
   alias: "localui.kido.local",
-};
+});
 
-export const workerPort: PortEntry = {
+export const workerPort: PortEntry = Object.freeze({
   name: "worker",
   port: 8080,
   forward: true,
   alias: "worker.backend.local",
-};
+});
 
 export function makeApp(
   name: string,

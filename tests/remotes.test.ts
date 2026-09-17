@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AppConfig } from "../src/config/app.ts";
 import { ConfigError } from "../src/errors.ts";
 import { referencedRemotes, validateRemotes } from "../src/remotes.ts";
 import { frontendPort, kidoApp, makeApp } from "./helpers/apps.ts";
-import { tempDir, writeTextFile } from "./helpers/fs.ts";
+import { tempDir } from "./helpers/fs.ts";
 
 const kido: AppConfig = kidoApp([frontendPort]);
 
@@ -27,7 +28,7 @@ beforeEach(async () => {
 });
 
 async function writeHosts(text: string): Promise<void> {
-  await writeTextFile(sshConfigPath, text);
+  await writeFile(sshConfigPath, text, "utf8");
 }
 
 describe("referencedRemotes", () => {

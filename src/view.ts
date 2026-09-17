@@ -77,7 +77,7 @@ function proxyLabel(status: ProxyStatus | undefined): string {
   if (status?.phase === "up") return "● up";
   const error = status?.lastError;
   if (error === undefined || error === null || error === "") return "○ down";
-  return `○ down (${error.length > 40 ? `${error.slice(0, 37)}…` : error})`;
+  return `○ down (${truncateText(error, MAX_PROXY_ERROR_LENGTH)})`;
 }
 
 function buildGroup(app: AppConfig, options: BuildViewOptions): AppGroupView {
@@ -132,6 +132,8 @@ function buildRow(
 }
 
 const MAX_NOTE_LENGTH = 80;
+
+const MAX_PROXY_ERROR_LENGTH = 40;
 
 function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;

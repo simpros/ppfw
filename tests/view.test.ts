@@ -55,7 +55,7 @@ describe("buildView", () => {
       collapsed: new Set(),
       proxyStatus: { phase: "down", lastError: "x".repeat(50) },
     });
-    expect(v.header.left).toBe(`ppfw  workspace /ws  root proxy ○ down (${"x".repeat(37)}…)`);
+    expect(v.header.left).toBe(`ppfw  workspace /ws  root proxy ○ down (${"x".repeat(39)}…)`);
   });
 
   test("apps render as groups in the given order", () => {

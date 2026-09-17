@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ConfigError } from "../src/errors.ts";
 import { Workspace } from "../src/workspace.ts";
-import { tempDir, writeAppConfig, writeTextFile } from "./helpers/fs.ts";
+import { tempDir, writeAppConfig } from "./helpers/fs.ts";
 
 let ws: string;
 let sshConfigPath: string;
@@ -52,13 +53,13 @@ describe("Workspace", () => {
   });
 
   test("scan fails fast on an unresolved remote", async () => {
-    await writeTextFile(sshConfigPath, "Host other\n");
+    await writeFile(sshConfigPath, "Host other\n", "utf8");
     await app("kido", "remote: devbox-a\nports:\n  frontend: 5173\n");
     expect(() => workspace().scan()).toThrow(/devbox-a/);
   });
 
   test("scan passes when every remote resolves", async () => {
-    await writeTextFile(sshConfigPath, "Host devbox-a\n");
+    await writeFile(sshConfigPath, "Host devbox-a\n", "utf8");
     await app("kido", "remote: devbox-a\nports:\n  frontend: 5173\n");
     expect(() => workspace().scan()).not.toThrow();
   });

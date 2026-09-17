@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { forwardKey, ForwardEngine } from "../src/forward.ts";
 import { RootProxy, routesForApps } from "../src/proxy.ts";
 import { createRuntime, type RuntimeEngine, type RuntimeProxy } from "../src/runtime.ts";
 import { Workspace } from "../src/workspace.ts";
-import { tempDir, writeAppConfig, writeTextFile } from "./helpers/fs.ts";
+import { tempDir, writeAppConfig } from "./helpers/fs.ts";
 import { FakeSpawn, tick } from "./helpers/spawn.ts";
 
 let ws: string;
@@ -22,7 +23,7 @@ const SCRIPT = "/ppfw/src/root-proxy.ts";
 async function makeRuntime() {
   const spawn = new FakeSpawn();
   const sshConfigPath = join(await tempDir("ppfw-ssh-"), "config");
-  await writeTextFile(sshConfigPath, "Host devbox\n");
+  await writeFile(sshConfigPath, "Host devbox\n", "utf8");
   const workspace = new Workspace({
     workspaceRoot: ws,
     aliasSuffix: "local",
