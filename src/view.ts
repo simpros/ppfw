@@ -77,7 +77,7 @@ function proxyLabel(status: ProxyStatus | undefined): string {
   if (status?.phase === "up") return "● up";
   const error = status?.lastError;
   if (error === undefined || error === null || error === "") return "○ down";
-  return `○ down (${error.length > 40 ? `${error.slice(0, 37)}…` : error})`;
+  return `○ down (${truncateText(error, MAX_PROXY_ERROR_LENGTH)})`;
 }
 
 function buildGroup(app: AppConfig, options: BuildViewOptions): AppGroupView {
@@ -126,25 +126,25 @@ function buildRow(
     name: port.name,
     port: `:${port.port}`,
     alias: port.alias ? `→  ${port.alias}` : "(no alias)",
-    note: truncate(note),
+    note: truncateText(note, MAX_NOTE_LENGTH),
     standalone: false,
   };
 }
 
 const MAX_NOTE_LENGTH = 80;
 
-function truncate(note: string): string {
-  if (note.length <= MAX_NOTE_LENGTH) return note;
-  return `${note.slice(0, MAX_NOTE_LENGTH - 1)}…`;
+const MAX_PROXY_ERROR_LENGTH = 40;
+
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1)}…`;
 }
 
 const MAX_RESCAN_ERROR_LENGTH = 60;
 
 function truncateRescanError(error: string): string {
   if (error === "") return "";
-  const notice = `rescan failed · ${error}`;
-  if (notice.length <= MAX_RESCAN_ERROR_LENGTH) return notice;
-  return `${notice.slice(0, MAX_RESCAN_ERROR_LENGTH - 1)}…`;
+  return truncateText(`rescan failed · ${error}`, MAX_RESCAN_ERROR_LENGTH);
 }
 
 function reconnectNote(status: ForwardStatus): string {

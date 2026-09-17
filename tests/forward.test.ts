@@ -6,25 +6,12 @@ import {
   forwardKey,
 } from "../src/forward.ts";
 import { classifyExit } from "../src/supervisor.ts";
+import { backendApp, kidoApp, makeApp } from "./helpers/apps.ts";
 import { FakeSpawn, tick, waitFor } from "./helpers/spawn.ts";
 
-const kido: AppConfig = {
-  name: "kido",
-  dir: "/ws/kido",
-  remote: "devbox-a",
-  ports: [
-    { name: "frontend", port: 5173, forward: true, alias: "frontend.kido.local" },
-    { name: "db", port: 5432, forward: true, alias: null },
-    { name: "localui", port: 9000, forward: false, alias: "localui.kido.local" },
-  ],
-};
+const kido: AppConfig = kidoApp();
 
-const backend: AppConfig = {
-  name: "backend",
-  dir: "/ws/backend",
-  remote: null,
-  ports: [{ name: "worker", port: 8080, forward: true, alias: "worker.backend.local" }],
-};
+const backend: AppConfig = backendApp();
 
 function makeEngine(overrides: {
   apps?: AppConfig[];
@@ -119,7 +106,7 @@ describe("ForwardEngine", () => {
 
   test("standalone aliases are not tracked as forwards", () => {
     const { engine } = makeEngine({});
-    expect(engine.status(forwardKey("/ws/kido", "localui"))).toBeNull();
+    expect(engine.status(forwardKey("/ws/kido", "localui"))).toBeUndefined();
   });
 
   test("start spawns ssh with the forward argv for the app's remote", async () => {
@@ -137,12 +124,9 @@ describe("ForwardEngine", () => {
   });
 
   test("apps targeting different remotes forward in the same session", async () => {
-    const api: AppConfig = {
-      name: "api",
-      dir: "/ws/api",
-      remote: "devbox-b",
-      ports: [{ name: "svc", port: 9001, forward: true, alias: null }],
-    };
+    const api: AppConfig = makeApp("api", "/ws/api", "devbox-b", [
+      { name: "svc", port: 9001, forward: true, alias: null },
+    ]);
     const { engine, spawn } = makeEngine({ apps: [kido, api, backend] });
     await engine.start("/ws/kido", "frontend");
     await engine.start("/ws/api", "svc");
@@ -422,7 +406,7 @@ describe("ForwardEngine", () => {
       "devbox-a",
       "devbox-a",
     ]);
-    expect(engine.status(forwardKey("/ws/kido", "localui"))).toBeNull();
+    expect(engine.status(forwardKey("/ws/kido", "localui"))).toBeUndefined();
   });
 
   test("startApp on an unknown app is a no-op", async () => {
@@ -495,7 +479,7 @@ describe("ForwardEngine.setApps", () => {
     spawn.children[0]!.exit(0);
     await reconciled;
     expect(spawn.children[0]!.killSignal).toBe("SIGTERM");
-    expect(engine.status(frontend)).toBeNull();
+    expect(engine.status(frontend)).toBeUndefined();
     expect(engine.status(worker)?.phase).toBe("stopped");
   });
 

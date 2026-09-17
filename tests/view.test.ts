@@ -2,25 +2,18 @@ import { describe, expect, test } from "bun:test";
 import type { AppConfig } from "../src/config/app.ts";
 import { forwardKey, type ForwardStatus } from "../src/forward.ts";
 import { buildView } from "../src/view.ts";
+import {
+  apiPort,
+  backendApp,
+  dbPort,
+  frontendPort,
+  kidoApp,
+  localuiPort,
+} from "./helpers/apps.ts";
 
-const kido: AppConfig = {
-  name: "kido",
-  dir: "/ws/kido",
-  remote: "devbox-a",
-  ports: [
-    { name: "frontend", port: 5173, forward: true, alias: "frontend.kido.local" },
-    { name: "api", port: 3232, forward: true, alias: "api-v2.kido.local" },
-    { name: "db", port: 5432, forward: true, alias: null },
-    { name: "localui", port: 9000, forward: false, alias: "localui.kido.local" },
-  ],
-};
+const kido: AppConfig = kidoApp([frontendPort, apiPort, dbPort, localuiPort]);
 
-const backend: AppConfig = {
-  name: "backend",
-  dir: "/ws/backend",
-  remote: null,
-  ports: [{ name: "worker", port: 8080, forward: true, alias: "worker.backend.local" }],
-};
+const backend: AppConfig = backendApp();
 
 function view(collapsed: ReadonlySet<string> = new Set()) {
   return buildView({ workspaceRoot: "/ws", apps: [kido, backend], collapsed });
@@ -62,7 +55,7 @@ describe("buildView", () => {
       collapsed: new Set(),
       proxyStatus: { phase: "down", lastError: "x".repeat(50) },
     });
-    expect(v.header.left).toBe(`ppfw  workspace /ws  root proxy ○ down (${"x".repeat(37)}…)`);
+    expect(v.header.left).toBe(`ppfw  workspace /ws  root proxy ○ down (${"x".repeat(39)}…)`);
   });
 
   test("apps render as groups in the given order", () => {

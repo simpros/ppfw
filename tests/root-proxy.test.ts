@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { HOSTS_BEGIN_MARKER, HOSTS_END_MARKER } from "../src/hosts.ts";
+import { tempDir } from "./helpers/fs.ts";
+import { tick } from "./helpers/spawn.ts";
 
 const children: Bun.Subprocess[] = [];
 
@@ -13,8 +14,6 @@ afterEach(async () => {
   }
   children.length = 0;
 });
-
-const tick = (ms = 5) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function waitForFile(path: string, predicate: (text: string) => boolean): Promise<string> {
   const deadline = Date.now() + 1_000;
@@ -43,7 +42,7 @@ function spawnRootProxy(hostsPath: string): Bun.Subprocess {
 
 describe("root proxy hosts lifecycle", () => {
   test("reconciles stale entries and removes the block on stdin close", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "ppfw-root-proxy-"));
+    const dir = await tempDir("ppfw-root-proxy-");
     const hostsPath = join(dir, "hosts");
     await writeFile(
       hostsPath,

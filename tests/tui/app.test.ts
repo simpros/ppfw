@@ -5,24 +5,11 @@ import { forwardKey, type ForwardStatus } from "../../src/forward.ts";
 import type { ProxyStatus } from "../../src/proxy.ts";
 import type { Runtime } from "../../src/runtime.ts";
 import { runTuiWith } from "../../src/tui/app.ts";
+import { backendApp, kidoApp } from "../helpers/apps.ts";
 
-const kido: AppConfig = {
-  name: "kido",
-  dir: "/ws/kido",
-  remote: "devbox-a",
-  ports: [
-    { name: "frontend", port: 5173, forward: true, alias: "frontend.kido.local" },
-    { name: "db", port: 5432, forward: true, alias: null },
-    { name: "localui", port: 9000, forward: false, alias: "localui.kido.local" },
-  ],
-};
+const kido: AppConfig = kidoApp();
 
-const backend: AppConfig = {
-  name: "backend",
-  dir: "/ws/backend",
-  remote: null,
-  ports: [{ name: "worker", port: 8080, forward: true, alias: "worker.backend.local" }],
-};
+const backend: AppConfig = backendApp();
 
 interface FakeRuntime extends Runtime {
   calls: string[];

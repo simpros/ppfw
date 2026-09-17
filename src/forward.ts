@@ -130,16 +130,16 @@ export class ForwardEngine {
     this.emit();
   }
 
-  status(key: string): ForwardStatus | null {
+  status(key: string): ForwardStatus | undefined {
     const entry = this.entries.get(key);
-    if (!entry) return null;
+    if (!entry) return undefined;
     return forwardStatusOf(entry.supervisor);
   }
 
   statuses(): Map<string, ForwardStatus> {
     const map = new Map<string, ForwardStatus>();
-    for (const [key, entry] of this.entries) {
-      map.set(key, forwardStatusOf(entry.supervisor));
+    for (const [key] of this.entries) {
+      map.set(key, this.status(key)!);
     }
     return map;
   }
