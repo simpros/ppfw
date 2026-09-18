@@ -4,6 +4,14 @@ Every pull request is opened and described with the `visual-pr` skill (from
 [`humanlayer/skills`](https://github.com/humanlayer/skills), pinned commit
 `ca7c8088`), which implements the template below.
 
+The skill is the source of truth, not a copy of it:
+`npx skills add humanlayer/skills --skill visual-pr`, then invoke `/visual-pr`
+(or read `plugins/visual-pr/skills/visual-pr/SKILL.md` in
+[`humanlayer/skills`](https://github.com/humanlayer/skills) at commit `ca7c8088`).
+The skill owns the body template (`references/pr_description_template.md`) and the
+visuals (`references/show-me.md`). Do not reimplement that template here — this
+file's template is only the fallback for when the skill is unavailable.
+
 ## Body template
 
 **Why the change** — one sentence. A reviewer reads it first and it decides
