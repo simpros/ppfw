@@ -12,10 +12,6 @@ export interface ValidateRemotesOptions {
   homeDir?: string;
 }
 
-/**
- * Every remote this session may forward through: the default remote plus
- * each app's `remote:` override. Maps alias -> what references it.
- */
 export function referencedRemotes(
   apps: AppConfig[],
   defaultRemote: string | null,
@@ -32,10 +28,6 @@ export function referencedRemotes(
   return remotes;
 }
 
-/**
- * Fail-fast check that every referenced remote is a defined `~/.ssh/config`
- * host alias, naming each alias that is missing.
- */
 export function validateRemotes(options: ValidateRemotesOptions): void {
   const homeDir = options.homeDir ?? homedir();
   const sshConfigPath =

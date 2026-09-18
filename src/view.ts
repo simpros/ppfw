@@ -5,7 +5,6 @@ import type { ProxyStatus } from "./proxy.ts";
 export interface HeaderView {
   left: string;
   counts: string;
-  /** Why the last rescan failed; empty when the workspace is healthy. */
   rescanError: string;
 }
 

@@ -12,10 +12,6 @@ export interface WorkspaceOptions {
   homeDir?: string;
 }
 
-/**
- * The workspace as ppfw sees it: one `scan()` re-reads every `.ppfw.config`
- * and fails fast (ConfigError) on an invalid config or an unresolved remote.
- */
 export class Workspace {
   private readonly options: WorkspaceOptions;
 

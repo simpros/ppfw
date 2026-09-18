@@ -1,7 +1,5 @@
 import type { AppConfig, PortEntry } from "../../src/config/app.ts";
 
-/** Shared named-port fixtures. Frozen so no suite can poison another. */
-
 export const frontendPort: PortEntry = Object.freeze({
   name: "frontend",
   port: 5173,
@@ -46,7 +44,6 @@ export function makeApp(
   return { name, dir, remote, ports: ports.map((port) => ({ ...port })) };
 }
 
-/** Standard kido app; pass explicit ports for shapes that differ (e.g. view). */
 export function kidoApp(ports: PortEntry[] = [frontendPort, dbPort, localuiPort]): AppConfig {
   return makeApp("kido", "/ws/kido", "devbox-a", ports);
 }

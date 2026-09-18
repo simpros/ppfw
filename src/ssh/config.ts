@@ -1,18 +1,5 @@
-/**
- * A minimal parser for `~/.ssh/config` Host aliases.
- *
- * Semantics verified against OpenSSH's own reader: lines starting with `#`
- * are comments (a mid-line `#` is literal), keywords are case-insensitive,
- * arguments are whitespace-separated and may be double-quoted to contain
- * spaces, `Host=alias` is accepted, and there is no line continuation.
- * Patterns follow ssh_config(5): `*` matches any run, `?` matches exactly
- * one character, a leading `!` negates, and the first matching pattern in
- * a `Host` line decides the outcome. Each `Host` line is one pattern list;
- * an alias is present if any `Host` line matches it.
- */
-
+// OpenSSH Host-alias subset; see docs/ssh-config-dialect.md.
 export interface SshConfig {
-  /** One pattern list per `Host` line, in file order. */
   patterns: string[][];
 }
 
@@ -44,10 +31,6 @@ export function parseSshConfig(text: string): SshConfig {
   return { patterns };
 }
 
-/**
- * True when the alias matches the Host line's pattern list, mirroring ssh's
- * first-match-wins rule: a matching `!`-prefixed pattern negates the list.
- */
 function patternsMatch(patterns: readonly string[], alias: string): boolean {
   for (const pattern of patterns) {
     const negated = pattern.startsWith("!");

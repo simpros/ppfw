@@ -29,7 +29,7 @@ const nodeHostsFileSystem: HostsFileSystem = {
   writeFile: atomicWrite,
 };
 
-/** Replace ppfw's block while leaving every line outside it untouched. */
+// Replace ppfw's block while leaving every line outside it untouched.
 export function reconcileHostsText(
   existing: string,
   aliases: Iterable<string>,
