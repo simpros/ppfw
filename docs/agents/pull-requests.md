@@ -1,8 +1,9 @@
 # Pull requests
 
-Every pull request is opened and described with the `visual-pr` skill (from
-[`humanlayer/skills`](https://github.com/humanlayer/skills), pinned commit
-`ca7c8088`), which implements the template below.
+Every pull request is opened and described with the `visual-pr` skill vendored at
+`.agents/skills/visual-pr/` (from [`humanlayer/skills`](https://github.com/humanlayer/skills),
+pinned commit `ca7c8088`). The skill is the source of truth for the body shape;
+this file carries the publishing steps and the fallback template.
 
 The skill is the source of truth, not a copy of it:
 `npx skills add humanlayer/skills --skill visual-pr`, then invoke `/visual-pr`

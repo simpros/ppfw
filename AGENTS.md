@@ -10,8 +10,12 @@ Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agent
 
 ### Pull requests
 
-Every PR body follows the `visual-pr` template — Why in one sentence, 1-3 special
-notes, and a structural Change outline. See `docs/agents/pull-requests.md`.
+Open and describe every PR with the `visual-pr` skill vendored in this repo at
+`.agents/skills/visual-pr/` — Why in one sentence, 1-3 special notes, and a
+structural Change outline. Its frontmatter says explicit-invoke-only; that
+default is overridden here: use it for every PR body. See
+`docs/agents/pull-requests.md` for the publishing steps and the show-me-comment
+rule.
 
 ### Comment style
 
