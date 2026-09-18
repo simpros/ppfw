@@ -15,7 +15,6 @@ export type ChildPhase = "stopped" | "starting" | "up" | "reconnecting" | "error
 export interface ChildStatus {
   phase: ChildPhase;
   lastError: string | null;
-  /** Delay before the next reconnect attempt; set while reconnecting. */
   backoffMs?: number;
 }
 
@@ -100,9 +99,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 interface Failure {
-  /** True when retrying cannot help; the child halts in error. */
   permanent: boolean;
-  /** Human-readable reason, rendered inline on the row. */
   reason: string;
 }
 
@@ -116,11 +113,6 @@ function lastStderrLine(stderr: string): string {
   );
 }
 
-/**
- * Classify a child-process exit. Permanent failures (auth/permission, port
- * conflicts, sudo escalation) must halt retrying; everything else is treated
- * as a transient drop that the reconnect loop may retry.
- */
 export function classifyExit(code: number, stderr: string): Failure {
   const text = stderr.toLowerCase();
   if (text.includes("address already in use")) {
@@ -217,8 +209,6 @@ export class ChildSupervisor {
     this.lastError = null;
     this.backoffMs = undefined;
 
-    // If another process already owns the port, the child cannot bind: fail
-    // fast with an inline reason instead of racing the bind error.
     if (await this.probe(this.port)) {
       if (this.isCurrent(generation)) {
         this.setPhase("error", "port in use");
@@ -248,15 +238,10 @@ export class ChildSupervisor {
     }
   }
 
-  /** Replace the command used by the next spawn; a running child is unaffected. */
   setArgv(argv: string[]): void {
     this.argv = argv;
   }
 
-  /**
-   * Drive one lifecycle pass: bring the child up, then either halt on a
-   * permanent failure or schedule a reconnect for a transient drop.
-   */
   private async runAttempt(generation: number): Promise<void> {
     const result = await this.attemptStart(generation);
     if (result.status === "abandoned" || !this.isCurrent(generation)) return;

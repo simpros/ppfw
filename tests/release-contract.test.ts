@@ -63,7 +63,6 @@ function stepByName(steps: WorkflowStep[], name: string): WorkflowStep {
   return step ?? {};
 }
 
-/** Run install.sh with a stubbed `uname` returning the given -s/-m values. */
 function runInstall(
   unameS: string,
   unameM: string,
@@ -92,7 +91,6 @@ function runInstall(
   };
 }
 
-/** uname -s/-m probes that must resolve to the given contract target. */
 function unameProbes(t: Target): Array<[string, string]> {
   const s = t.os === "darwin" ? "Darwin" : "Linux";
   const m = t.arch === "arm64"
@@ -106,7 +104,6 @@ describe("release artifact contract", () => {
     const { checksumFile, installScript, targets } = loadTargets();
     expect(checksumFile).toBe("SHA256SUMS.txt");
     expect(installScript).toBe("install.sh");
-    // The platform set is pinned here; asset names follow ppfw-<os>-<arch>.
     expect(targets.map((t) => `${t.os}/${t.arch}`).sort()).toEqual([
       "darwin/arm64",
       "darwin/x64",
@@ -145,7 +142,6 @@ describe("release artifact contract", () => {
   test("release job derives checksums and uploads from the contract, not a hardcoded list", () => {
     const steps = loadWorkflowSteps();
     const checksumStep = stepByName(steps, "Generate SHA256SUMS.txt");
-    // Derived from the JSON pin: must diff dist/ against it, then checksum.
     expect(checksumStep.run ?? "").toContain("scripts/release-targets.json");
     expect(checksumStep.run ?? "").toContain("sha256sum");
     expect(checksumStep.run ?? "").toContain("SHA256SUMS.txt");
@@ -153,15 +149,12 @@ describe("release artifact contract", () => {
       expect(checksumStep.run ?? "").not.toContain(asset);
     }
     const uploadStep = stepByName(steps, "Create GitHub Release");
-    // Glob upload: an asset present in the matrix cannot silently drop
-    // out of the checksum/upload lists, and no orphan can sneak in.
     expect(uploadStep.run ?? "").toContain("dist/ppfw-*");
     expect(uploadStep.run ?? "").toContain("SHA256SUMS.txt");
     expect(uploadStep.run ?? "").toContain("install.sh");
     for (const asset of loadTargets().targets.map((t) => t.asset)) {
       expect(uploadStep.run ?? "").not.toContain(`dist/${asset}`);
     }
-    // Hyphenated tags (vX.Y.Z-label) publish as prereleases.
     expect(uploadStep.run ?? "").toContain("*-*)");
     expect(uploadStep.run ?? "").toContain("--prerelease");
   });
@@ -171,8 +164,6 @@ describe("release artifact contract", () => {
     const { targets } = loadTargets();
     const lines = doc.split("\n");
     for (const t of targets) {
-      // Same-line pairing: catches swapped asset<->runner rows that
-      // independent substring checks would miss.
       const paired = lines.some(
         (line) => line.includes(t.asset) && line.includes(t.runner),
       );

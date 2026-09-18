@@ -17,10 +17,7 @@ export interface TuiOptions {
   runtime: Runtime;
 }
 
-/**
- * Fallback for terminals that never answer the OSC 10/11 theme query:
- * COLORFGBG (set by several terminal families) is "fg;bg" ANSI indices.
- */
+// COLORFGBG is "fg;bg" indices; fallback when the OSC 10/11 theme query goes unanswered.
 export function themeFromEnv(
   env: Record<string, string | undefined>,
 ): ThemeMode | null {

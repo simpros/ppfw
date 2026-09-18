@@ -54,7 +54,6 @@ async function makeRuntime() {
   return { runtime, spawn };
 }
 
-/** Kill records the signal only; complete pending stops by exiting killed children. */
 async function settleTeardown(stop: Promise<void>, spawn: FakeSpawn): Promise<void> {
   await tick();
   for (const child of spawn.children) {

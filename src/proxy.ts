@@ -139,11 +139,6 @@ export class RootProxy {
     await this.supervisor.stop();
   }
 
-  /**
-   * Serve a new route table. A running proxy is restarted with the new
-   * routes; a proxy that is down or halted picks them up on its next start,
-   * and one mid-backoff retries with them on its next attempt.
-   */
   async setRoutes(routes: Route[]): Promise<void> {
     const json = proxyRoutesJson(routes);
     if (json === this.routesJson) return;

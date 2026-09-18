@@ -1,4 +1,3 @@
-/** True when `host` is a valid DNS hostname (labels, length, charset). */
 export function isHostname(host: string): boolean {
   if (host !== host.trim()) return false;
   const labels = host.split(".");

@@ -54,11 +54,9 @@ export class FakeSpawn {
     return child;
   };
 
-  /** A port opens while its ssh child is alive, and closes when it exits. */
   forwardProbe = (port: number): Promise<boolean> =>
     Promise.resolve(this.portInUse || (this.probeOpen && this.livePorts.has(port)));
 
-  /** Port 80 opens while the proxy child is alive, and closes when it exits. */
   proxyProbe = (_port?: number): Promise<boolean> =>
     Promise.resolve(this.portInUse || (this.probeOpen && this.liveProxy > 0));
 

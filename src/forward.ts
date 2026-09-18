@@ -19,9 +19,7 @@ export type ForwardPhase = ChildPhase;
 
 export interface ForwardStatus {
   phase: ForwardPhase;
-  /** Inline reason for the row; set while reconnecting or in error. */
   note?: string;
-  /** Delay before the next reconnect attempt; set while reconnecting. */
   backoffMs?: number;
 }
 
@@ -90,12 +88,6 @@ export class ForwardEngine {
     }
   }
 
-  /**
-   * Reconcile the engine against a fresh workspace scan: forwards that
-   * disappeared are torn down, new ones are added stopped, and ones whose
-   * port or remote changed are replaced stopped. Running forwards that are
-   * unchanged keep running.
-   */
   async setApps(apps: AppConfig[]): Promise<void> {
     const desired = new Map<string, { port: number; remote: string | null }>();
     for (const app of apps) {
@@ -163,7 +155,6 @@ export class ForwardEngine {
     await entry.supervisor.stop();
   }
 
-  /** Tear the forward down and bring it back up. */
   async restart(appDir: string, portName: string): Promise<void> {
     await this.stop(appDir, portName);
     await this.start(appDir, portName);

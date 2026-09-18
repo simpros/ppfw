@@ -5,10 +5,7 @@ import { ConfigError, messageOf } from "../errors.ts";
 import { expandPath } from "../paths.ts";
 import { nodeFileSystem, type FileSystem } from "../filesystem.ts";
 
-/**
- * Collision-safe default: `.localhost` is reserved for loopback (RFC 6761),
- * unlike bare `.local`, which macOS mDNS already owns.
- */
+// `.localhost` is RFC 6761 loopback; `.local` is owned by macOS mDNS.
 export const DEFAULT_ALIAS_SUFFIX = "ppfw.localhost";
 
 export interface GlobalConfig {

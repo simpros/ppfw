@@ -1,5 +1,4 @@
 {
-  "$comment": "Single source of truth for the ppfw release artifact contract (see docs/release-contract.md). Asset names use GOOS-style os identifiers (darwin/linux).",
   "checksumFile": "SHA256SUMS.txt",
   "installScript": "install.sh",
   "targets": [
