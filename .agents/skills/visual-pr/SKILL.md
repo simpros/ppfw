@@ -1,6 +1,6 @@
 ---
 name: visual-pr
-description: Only use when the user explicitly invokes this skill by name.
+description: Open or update a pull/merge request description with a one-sentence Why, 1-3 special notes, and a structural Change outline.
 ---
 
 # Describe a Pull Request
