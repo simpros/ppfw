@@ -30,24 +30,29 @@
 11. **No editorializing or decoration:** no "ugly hack", "for now", "should be fine", no
     changelog notes, no emoji.
 
-### Sharpening the rule
+### Applying the rules
 
-A header that names what the module is *for* is allowed; when it also cites a ticket,
-**rewrite it to one line without the reference**. Do not delete it: the purpose is
-context a reader cannot recover from the code. Delete only headers that are a table of
-contents, pure narration, or a reference with no other content.
+Notes below the rules, subordinate to them: if a note ever disagrees with a
+rule above, the rule wins. Delete is the default — a comment survives only
+if it states something the code, its types, its tests, the docs or the
+tracker cannot say (rule 1).
 
-### Comment policy v2 — the default is now DELETE
-
-The first sweep was already aggressive; this tightens what may survive.
-
-1. **Delete is the default.** A comment survives only if it states something the code, its types, its tests, the docs or the tracker cannot say.
-2. **Delete every file/module header that only names the file's contents** ("Routes for X", "Helpers for Y", "The children routes: …"). Keep a header only when it states a constraint the file cannot express (e.g. "all writes here go through `withPreviewLock`", "must stay dependency-free: imported by the CLI bootstrap").
-3. **Delete JSDoc that echoes the signature or a type name.** Keep docstrings only on exported API/CLI surfaces, and only for non-obvious contract facts (invariant, throw, side effect, ordering).
-4. **Delete comments in tests by default** — the test name and its assertions are the documentation. Keep one only where it records an *observed external behaviour* the test guards against (e.g. "a column-0 comment once ended the `|` block scalar early").
-5. **Delete anything already recorded in an ADR, `CONTEXT.md`, `docs/`, or the tracker** — including ADR numbers used as shorthand for a rule. The ADR is the home of that rule; the code does not need the pointer.
-6. **Survivors: at most one line each**, and only for one of: an invariant that is not visible in the code, an ordering or locking requirement, an external system's quirk plus its workaround, a security decision, a performance/safety tradeoff, the meaning of an otherwise unexplained constant, or a back-compat constraint.
-7. **If you hesitate, delete.** A missing explanation is recoverable from git history and the tracker; a stale explanation that contradicts the code is not.
-8. Unchanged and absolute: **no ticket/issue/PR/reviewer references, no commented-out code, no banner or section dividers, no history narration, no editorializing, no decoration.**
-9. **In the PR body, list every comment that survived** with a one-clause justification ("kept: locking requirement", "kept: CI quirk observed on GitLab"). A survivor you cannot justify in one clause is a deletion you missed — the reviewer will treat it that way.
-10. **Goal:** comment lines well under 1% of LOC (sprout was 6%, DCOS 4%). Report before/after counts in the PR body.
+- Headers: a header that names what the module is for stays only as one
+  line with no ticket reference (rule 2); a header that only labels the
+  file's contents or lists its sections goes (rule 8). A header survives
+  as-is only when it states a constraint the file cannot express.
+- Docstrings: keep them only on exported API/CLI surfaces, and only for
+  non-obvious contract facts — invariant, throw, side effect, ordering
+  (rule 7).
+- Tests: the test name and its assertions are the documentation; keep a
+  comment only where it records an observed external behaviour the test
+  guards against (rule 6).
+- Decisions: anything needing a paragraph belongs in `CONTEXT.md` /
+  `docs/adr/`, leaving at most a one-line pointer in the code (rule 9).
+  An ADR number appears only on the same line as a named deliberate
+  deviation (rule 5), never as shorthand for a rule.
+- Survivors are at most one line each (rule 9). If you hesitate, delete:
+  a missing explanation is recoverable from git history; a stale one that
+  contradicts the code is not (rule 10).
+- In the PR body, list every surviving comment with a one-clause
+  justification and report before/after comment-line counts.

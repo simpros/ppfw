@@ -113,6 +113,7 @@ function lastStderrLine(stderr: string): string {
   );
 }
 
+// Permanent (auth/permission/port/sudo) halts retrying; everything else is a transient drop.
 export function classifyExit(code: number, stderr: string): Failure {
   const text = stderr.toLowerCase();
   if (text.includes("address already in use")) {
@@ -209,6 +210,7 @@ export class ChildSupervisor {
     this.lastError = null;
     this.backoffMs = undefined;
 
+    // Fail fast when the port is taken instead of racing the bind error.
     if (await this.probe(this.port)) {
       if (this.isCurrent(generation)) {
         this.setPhase("error", "port in use");

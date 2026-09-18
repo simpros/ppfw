@@ -149,6 +149,7 @@ describe("release artifact contract", () => {
       expect(checksumStep.run ?? "").not.toContain(asset);
     }
     const uploadStep = stepByName(steps, "Create GitHub Release");
+    // Glob upload: a matrix asset cannot silently drop out of the release, and no orphan can sneak in.
     expect(uploadStep.run ?? "").toContain("dist/ppfw-*");
     expect(uploadStep.run ?? "").toContain("SHA256SUMS.txt");
     expect(uploadStep.run ?? "").toContain("install.sh");
@@ -164,6 +165,7 @@ describe("release artifact contract", () => {
     const { targets } = loadTargets();
     const lines = doc.split("\n");
     for (const t of targets) {
+      // Same-line pairing: catches swapped asset<->runner rows that independent substring checks would miss.
       const paired = lines.some(
         (line) => line.includes(t.asset) && line.includes(t.runner),
       );

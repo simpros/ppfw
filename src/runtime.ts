@@ -16,6 +16,7 @@ export interface Runtime {
   stopApp(appDir: string): Promise<void>;
   startAll(): Promise<void>;
   stopAll(): Promise<void>;
+  // Re-reads the workspace without quitting; keeps the old state on error.
   rescan(): Promise<void>;
   rescanError(): string | null;
   statuses(): ReadonlyMap<string, ForwardStatus>;

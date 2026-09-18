@@ -1,3 +1,4 @@
+// OpenSSH Host-alias subset; see docs/ssh-config-dialect.md.
 export interface SshConfig {
   patterns: string[][];
 }

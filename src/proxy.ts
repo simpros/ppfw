@@ -139,6 +139,7 @@ export class RootProxy {
     await this.supervisor.stop();
   }
 
+  // Running proxy restarts with the new routes; down/halted picks them up on next start, mid-backoff on next attempt.
   async setRoutes(routes: Route[]): Promise<void> {
     const json = proxyRoutesJson(routes);
     if (json === this.routesJson) return;
