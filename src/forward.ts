@@ -1,10 +1,6 @@
 import type { AppConfig } from "./config/app.ts";
 import {
   ChildSupervisor,
-  DEFAULT_BASE_BACKOFF_MS,
-  DEFAULT_MAX_BACKOFF_MS,
-  DEFAULT_POLL_INTERVAL_MS,
-  DEFAULT_STARTUP_TIMEOUT_MS,
   bunSpawn,
   tcpProbe,
   type ChildPhase,
@@ -61,20 +57,20 @@ export class ForwardEngine {
   private readonly listeners = new Set<() => void>();
   private readonly spawn: SpawnFn;
   private readonly probe: ProbeFn;
-  private readonly pollIntervalMs: number;
-  private readonly startupTimeoutMs: number;
-  private readonly baseBackoffMs: number;
-  private readonly maxBackoffMs: number;
+  private readonly pollIntervalMs: number | undefined;
+  private readonly startupTimeoutMs: number | undefined;
+  private readonly baseBackoffMs: number | undefined;
+  private readonly maxBackoffMs: number | undefined;
   private readonly defaultRemote: string | null;
   private apps: AppConfig[];
 
   constructor(options: ForwardEngineOptions) {
     this.spawn = options.spawn ?? bunSpawn;
     this.probe = options.probe ?? tcpProbe;
-    this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
-    this.startupTimeoutMs = options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS;
-    this.baseBackoffMs = options.baseBackoffMs ?? DEFAULT_BASE_BACKOFF_MS;
-    this.maxBackoffMs = options.maxBackoffMs ?? DEFAULT_MAX_BACKOFF_MS;
+    this.pollIntervalMs = options.pollIntervalMs;
+    this.startupTimeoutMs = options.startupTimeoutMs;
+    this.baseBackoffMs = options.baseBackoffMs;
+    this.maxBackoffMs = options.maxBackoffMs;
     this.defaultRemote = options.defaultRemote;
     this.apps = options.apps;
     for (const app of options.apps) {
