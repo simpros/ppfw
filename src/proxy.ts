@@ -3,11 +3,6 @@ import type { AppConfig } from "./config/app.ts";
 import { RouteTable, type Route } from "./route-table.ts";
 import {
   ChildSupervisor,
-  DEFAULT_BASE_BACKOFF_MS,
-  DEFAULT_CAPTURE_TIMEOUT_MS,
-  DEFAULT_MAX_BACKOFF_MS,
-  DEFAULT_POLL_INTERVAL_MS,
-  DEFAULT_STARTUP_TIMEOUT_MS,
   bunSpawnWithStdin,
   sudoValidateEscalation,
   tcpProbe,
@@ -111,11 +106,11 @@ export class RootProxy {
         if (child.closeStdin) child.closeStdin();
         else child.kill("SIGTERM");
       },
-      pollIntervalMs: options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS,
-      startupTimeoutMs: options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS,
-      captureTimeoutMs: options.captureTimeoutMs ?? DEFAULT_CAPTURE_TIMEOUT_MS,
-      baseBackoffMs: options.baseBackoffMs ?? DEFAULT_BASE_BACKOFF_MS,
-      maxBackoffMs: options.maxBackoffMs ?? DEFAULT_MAX_BACKOFF_MS,
+      pollIntervalMs: options.pollIntervalMs,
+      startupTimeoutMs: options.startupTimeoutMs,
+      captureTimeoutMs: options.captureTimeoutMs,
+      baseBackoffMs: options.baseBackoffMs,
+      maxBackoffMs: options.maxBackoffMs,
     });
   }
 
