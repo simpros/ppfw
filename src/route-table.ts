@@ -1,4 +1,5 @@
 import { ConfigError, messageOf } from "./errors.ts";
+import { isValidPort } from "./ports.ts";
 
 export interface Route {
   host: string;
@@ -15,7 +16,7 @@ export class RouteTable {
       if (host === null) {
         throw new ConfigError("alias host must be non-empty");
       }
-      if (!Number.isInteger(route.port) || route.port < 1 || route.port > 65535) {
+      if (!isValidPort(route.port)) {
         throw new ConfigError(`alias ${route.host} has an invalid port ${route.port}`);
       }
       if (map.has(host)) {

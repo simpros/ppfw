@@ -2,6 +2,7 @@ import { basename } from "node:path";
 import { parse } from "yaml";
 import { ConfigError, messageOf } from "../errors.ts";
 import { isHostname } from "../hostname.ts";
+import { isValidPort } from "../ports.ts";
 
 export interface PortEntry {
   name: string;
@@ -136,7 +137,7 @@ function parsePortEntry(
 }
 
 function validatePort(where: string, portName: string, value: unknown): number {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 65535) {
+  if (!isValidPort(value)) {
     throw fail(
       where,
       `port \`${portName}\`: port number must be an integer between 1 and 65535`,
