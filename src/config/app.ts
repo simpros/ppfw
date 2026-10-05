@@ -3,6 +3,7 @@ import { parse } from "yaml";
 import { ConfigError, messageOf } from "../errors.ts";
 import { isHostname } from "../hostname.ts";
 import { isValidPort } from "../ports.ts";
+import { isNonEmptyString } from "./strings.ts";
 
 export interface PortEntry {
   name: string;
@@ -152,7 +153,7 @@ function optionalString(
   key: string,
 ): string | null {
   if (value === undefined) return null;
-  if (typeof value !== "string" || value.trim() === "") {
+  if (!isNonEmptyString(value)) {
     throw fail(where, `\`${key}\` must be a non-empty string`);
   }
   return value;
