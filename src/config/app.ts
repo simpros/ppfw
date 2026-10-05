@@ -3,6 +3,7 @@ import { parse } from "yaml";
 import { ConfigError, messageOf } from "../errors.ts";
 import { isHostname } from "../hostname.ts";
 import { isValidPort } from "../ports.ts";
+import { isNonEmptyString } from "./strings.ts";
 
 export interface PortEntry {
   name: string;
@@ -117,7 +118,7 @@ function parsePortEntry(
     alias = deriveAlias(where, portName, appName, aliasSuffix);
   } else if (map.alias === false) {
     alias = null;
-  } else if (typeof map.alias === "string" && map.alias.trim() !== "") {
+  } else if (isNonEmptyString(map.alias)) {
     alias = validateAlias(where, portName, map.alias);
   } else {
     throw fail(
@@ -152,7 +153,7 @@ function optionalString(
   key: string,
 ): string | null {
   if (value === undefined) return null;
-  if (typeof value !== "string" || value.trim() === "") {
+  if (!isNonEmptyString(value)) {
     throw fail(where, `\`${key}\` must be a non-empty string`);
   }
   return value;

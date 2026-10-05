@@ -4,6 +4,7 @@ import { parse } from "yaml";
 import { ConfigError, messageOf } from "../errors.ts";
 import { expandPath } from "../paths.ts";
 import { nodeFileSystem, type FileSystem } from "../filesystem.ts";
+import { isNonEmptyString } from "./strings.ts";
 
 // `.localhost` is RFC 6761 loopback; `.local` is owned by macOS mDNS.
 export const DEFAULT_ALIAS_SUFFIX = "ppfw.localhost";
@@ -79,7 +80,7 @@ function defaults(cwd: string): GlobalConfig {
 }
 
 function stringSetting(file: string, key: string, value: unknown): string {
-  if (typeof value !== "string" || value.trim() === "") {
+  if (!isNonEmptyString(value)) {
     throw new ConfigError(`${file}: \`${key}\` must be a non-empty string`);
   }
   return value;

@@ -16,7 +16,6 @@
 #   PPFW_PRERELEASE  set to 1 to opt in to prereleases (same as --prerelease)
 set -eu
 
-REPO="simpros/ppfw"
 VERSION="${PPFW_VERSION:-}"
 PRERELEASE="${PPFW_PRERELEASE:-0}"
 
