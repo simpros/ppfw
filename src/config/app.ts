@@ -118,7 +118,7 @@ function parsePortEntry(
     alias = deriveAlias(where, portName, appName, aliasSuffix);
   } else if (map.alias === false) {
     alias = null;
-  } else if (typeof map.alias === "string" && map.alias.trim() !== "") {
+  } else if (isNonEmptyString(map.alias)) {
     alias = validateAlias(where, portName, map.alias);
   } else {
     throw fail(

@@ -25,6 +25,11 @@ When set to `yes`, PRs run through the same labels and states as issues, using t
 
 GitHub shares one number space across issues and PRs, so a bare `#42` may be either — resolve with `gh pr view 42` and fall back to `gh issue view 42`.
 
+## Triage labels
+
+- `ready-for-agent` — the issue is fully specified and an agent may pick it up. Applied by `/to-spec` and `/to-tickets` on publish; no further triage needed.
+- `wayfinder:map` — the wayfinding map issue. Its child tickets carry `wayfinder:<type>` (`research`, `prototype`, `grilling`, or `task`).
+
 ## When a skill says "publish to the issue tracker"
 
 Create a GitHub issue.
